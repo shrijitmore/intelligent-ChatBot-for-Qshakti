@@ -523,15 +523,46 @@ Generate an informative response (max 150 words) that:
         
         return suggestions[:5]
     
-    def _is_chart_request(self, message: str) -> bool:
-        """Check if user wants a chart"""
-        keywords = ['chart', 'graph', 'plot', 'visualize', 'visualization', 'trend', 'show me', 'display']
-        return any(kw in message.lower() for kw in keywords)
-    
-    def _is_table_request(self, message: str) -> bool:
-        """Check if user wants a table"""
-        keywords = ['list all', 'show all', 'display all', 'table', 'list the', 'enumerate']
-        return any(kw in message.lower() for kw in keywords)
+    async def _detect_output_format(self, message: str, context: Dict) -> Dict[str, bool]:
+        """Use LLM to intelligently detect if user wants chart, table, or text"""
+        level = context.get('level', 'START')
+        
+        prompt = f"""
+You are a data visualization expert. Analyze this user request and determine the BEST output format.
+
+User message: "{message}"
+Current context level: {level}
+
+Rules:
+1. CHART: Use for trends, comparisons, quality data over time, distributions
+2. TABLE: Use for listing multiple items, parameters, detailed records, specifications
+3. TEXT: Use for navigation, explanations, descriptions, general questions
+
+Return ONLY a JSON with three boolean flags:
+{{"needs_chart": true/false, "needs_table": true/false, "needs_text_only": true/false}}
+
+Examples:
+- "Show quality trends" -> {{"needs_chart": true, "needs_table": false, "needs_text_only": false}}
+- "List all parameters" -> {{"needs_chart": false, "needs_table": true, "needs_text_only": false}}
+- "Tell me about CASE 4" -> {{"needs_chart": false, "needs_table": false, "needs_text_only": true}}
+- "Show me section details" -> {{"needs_chart": false, "needs_table": false, "needs_text_only": true}}
+"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            result_text = response.text.strip()
+            
+            # Extract JSON from response
+            import re
+            json_match = re.search(r'\{[^}]+\}', result_text)
+            if json_match:
+                result = json.loads(json_match.group())
+                return result
+        except Exception as e:
+            self.logger.error(f"Error detecting output format: {str(e)}")
+        
+        # Default: text only
+        return {"needs_chart": False, "needs_table": False, "needs_text_only": True}
     
     async def _generate_chart_data_contextual(self, message: str, context: Dict) -> Optional[Dict]:
         """Generate chart based on current context"""
