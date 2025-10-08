@@ -1,109 +1,202 @@
 import json
 from typing import Dict, List, Any
-import re
+from collections import defaultdict
 
 
 class DataLoader:
-    """Load and structure the database schema data"""
+    """Load and structure the inspection data hierarchically"""
     
-    def __init__(self, schema_file_path: str):
-        self.schema_file_path = schema_file_path
+    def __init__(self, data_file_path: str):
+        self.data_file_path = data_file_path
         self.structured_data = {}
+        self.raw_data = []
     
     def load_and_structure(self) -> Dict[str, Any]:
-        """Load the schema file and structure it"""
-        with open(self.schema_file_path, 'r') as f:
-            content = f.read()
+        """Load the JSON data file and structure it hierarchically"""
+        with open(self.data_file_path, 'r') as f:
+            self.raw_data = json.load(f)
         
-        # Parse the schema content
-        tables = self._parse_schema(content)
+        # Build hierarchical structure
+        hierarchy = self._build_hierarchy()
         
         self.structured_data = {
-            "tables": tables,
-            "total_tables": len(tables),
-            "categories": self._categorize_tables(tables)
+            "hierarchy": hierarchy,
+            "total_records": len(self.raw_data),
+            "plants": list(hierarchy.keys()),
+            "summary": self._generate_summary(hierarchy)
         }
         
         return self.structured_data
     
-    def _parse_schema(self, content: str) -> Dict[str, Any]:
-        """Parse schema content into structured format"""
-        tables = {}
+    def _build_hierarchy(self) -> Dict[str, Any]:
+        """Build hierarchical structure: Plant -> Section -> Item -> Inspections"""
+        hierarchy = {}
         
-        # Split by table sections (looking for ### headers)
-        table_sections = re.split(r'###\s+', content)
-        
-        for section in table_sections[1:]:  # Skip first empty split
-            lines = section.strip().split('\n')
-            if not lines:
+        for record in self.raw_data:
+            # Extract plant info
+            plant_data = record.get('created_by_id', {}).get('plant_id', {})
+            plant_id = plant_data.get('plant_id')
+            plant_name = plant_data.get('plant_name', 'Unknown Plant')
+            
+            if not plant_id:
                 continue
             
-            table_name = lines[0].strip()
-            table_info = {
-                "name": table_name,
-                "columns": [],
-                "records": 0,
-                "references": [],
-                "referenced_by": [],
-                "description": ""
-            }
+            # Initialize plant
+            if plant_id not in hierarchy:
+                hierarchy[plant_id] = {
+                    "id": plant_id,
+                    "name": plant_name,
+                    "sections": {}
+                }
             
-            for line in lines[1:]:
-                line = line.strip()
-                if line.startswith('**Columns:**'):
-                    columns_text = line.replace('**Columns:**', '').strip()
-                    table_info['columns'] = [c.strip() for c in columns_text.split(',')]
-                elif line.startswith('**Records:**'):
-                    records_text = line.replace('**Records:**', '').strip()
-                    try:
-                        table_info['records'] = int(records_text.split()[0])
-                    except:
-                        table_info['records'] = 0
-                elif line.startswith('**References:**'):
-                    refs_text = line.replace('**References:**', '').strip()
-                    # Parse references
-                    refs = re.findall(r'(\w+)\s+\(via\s+(\w+)\)', refs_text)
-                    table_info['references'] = [{'table': r[0], 'via': r[1]} for r in refs]
-                elif line.startswith('**Referenced by:**'):
-                    refs_text = line.replace('**Referenced by:**', '').strip()
-                    refs = re.findall(r'(\w+)\s+\(via\s+(\w+)\)', refs_text)
-                    table_info['referenced_by'] = [{'table': r[0], 'via': r[1]} for r in refs]
+            # Extract section info
+            section_data = record.get('insp_schedule_id_id', {}).get('building_id', {})
+            section_id = section_data.get('building_id')
+            section_name = section_data.get('building_name', 'Unknown Section')
+            sub_section = section_data.get('sub_section', '')
             
-            tables[table_name] = table_info
+            if section_id and section_id not in hierarchy[plant_id]['sections']:
+                hierarchy[plant_id]['sections'][section_id] = {
+                    "id": section_id,
+                    "name": section_name,
+                    "sub_section": sub_section,
+                    "items": {}
+                }
+            
+            # Extract item info
+            item_data = record.get('insp_schedule_id_id', {}).get('item_code_id', {})
+            item_code = item_data.get('item_code')
+            item_desc = item_data.get('item_description', 'Unknown Item')
+            item_type = item_data.get('item_type', '')
+            item_unit = item_data.get('unit', '')
+            
+            if section_id and item_code:
+                if item_code not in hierarchy[plant_id]['sections'][section_id]['items']:
+                    hierarchy[plant_id]['sections'][section_id]['items'][item_code] = {
+                        "code": item_code,
+                        "description": item_desc,
+                        "type": item_type,
+                        "unit": item_unit,
+                        "inspection_schedules": [],
+                        "machines": {},
+                        "operations": {},
+                        "parameters": {},
+                        "inspection_readings": []
+                    }
+                
+                # Extract inspection schedule info
+                insp_schedule = record.get('insp_schedule_id_id', {})
+                schedule_id = insp_schedule.get('id')
+                
+                # Extract machine info
+                machine_data = insp_schedule.get('qc_machine_id_id', {})
+                if machine_data:
+                    machine_id = machine_data.get('machine_id')
+                    if machine_id:
+                        hierarchy[plant_id]['sections'][section_id]['items'][item_code]['machines'][machine_id] = {
+                            "id": machine_id,
+                            "name": machine_data.get('machine_name', ''),
+                            "make": machine_data.get('machine_make', ''),
+                            "model": machine_data.get('machine_model', ''),
+                            "is_digital": machine_data.get('is_digital', False),
+                            "type": machine_data.get('machine_type', '')
+                        }
+                
+                # Extract operation info
+                operation_data = insp_schedule.get('operation_id', {})
+                if operation_data:
+                    operation_id = operation_data.get('operation_id')
+                    if operation_id:
+                        hierarchy[plant_id]['sections'][section_id]['items'][item_code]['operations'][operation_id] = {
+                            "id": operation_id,
+                            "name": operation_data.get('operation_name', ''),
+                            "description": operation_data.get('operation_description', '')
+                        }
+                
+                # Extract parameter info
+                parameter_data = insp_schedule.get('inspection_parameter_id', {})
+                if parameter_data:
+                    param_id = parameter_data.get('inspection_parameter_id')
+                    if param_id:
+                        hierarchy[plant_id]['sections'][section_id]['items'][item_code]['parameters'][param_id] = {
+                            "id": param_id,
+                            "name": parameter_data.get('inspection_parameter', ''),
+                            "description": parameter_data.get('parameter_description', '')
+                        }
+                
+                # Add inspection reading
+                reading = {
+                    "id": record.get('id'),
+                    "po_no": record.get('po_no'),
+                    "actual_readings": record.get('actual_readings', []),
+                    "created_at": record.get('created_at'),
+                    "schedule": {
+                        "id": schedule_id,
+                        "LSL": insp_schedule.get('LSL'),
+                        "target": insp_schedule.get('target_value'),
+                        "USL": insp_schedule.get('USL'),
+                        "sample_size": insp_schedule.get('sample_size'),
+                        "frequency": insp_schedule.get('inspection_frequency'),
+                        "method": insp_schedule.get('inspection_method'),
+                        "recording_type": insp_schedule.get('recording_type'),
+                        "defect_classification": insp_schedule.get('likely_defects_classification')
+                    },
+                    "machine": machine_data.get('machine_name') if machine_data else None,
+                    "operation": operation_data.get('operation_name') if operation_data else None,
+                    "parameter": parameter_data.get('inspection_parameter') if parameter_data else None
+                }
+                
+                hierarchy[plant_id]['sections'][section_id]['items'][item_code]['inspection_readings'].append(reading)
         
-        return tables
+        return hierarchy
     
-    def _categorize_tables(self, tables: Dict[str, Any]) -> Dict[str, List[str]]:
-        """Categorize tables by their purpose"""
-        categories = {
-            "Inspection & Quality Control": [],
-            "Master Data": [],
-            "User Management": [],
-            "System Tables": []
+    def _generate_summary(self, hierarchy: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate summary statistics"""
+        total_plants = len(hierarchy)
+        total_sections = sum(len(plant['sections']) for plant in hierarchy.values())
+        total_items = sum(
+            len(section['items'])
+            for plant in hierarchy.values()
+            for section in plant['sections'].values()
+        )
+        total_inspections = sum(
+            len(item['inspection_readings'])
+            for plant in hierarchy.values()
+            for section in plant['sections'].values()
+            for item in section['items'].values()
+        )
+        
+        return {
+            "total_plants": total_plants,
+            "total_sections": total_sections,
+            "total_items": total_items,
+            "total_inspection_readings": total_inspections
         }
-        
-        for table_name in tables.keys():
-            if 'inspection' in table_name.lower():
-                categories["Inspection & Quality Control"].append(table_name)
-            elif table_name.startswith('auth_'):
-                categories["User Management"].append(table_name)
-            elif table_name.startswith('django_') or 'token' in table_name.lower():
-                categories["System Tables"].append(table_name)
-            elif table_name.startswith('master_') or 'rbac' in table_name.lower():
-                categories["Master Data"].append(table_name)
-        
-        return categories
     
-    def get_table_info(self, table_name: str) -> Dict[str, Any]:
-        """Get information about a specific table"""
-        return self.structured_data.get('tables', {}).get(table_name, {})
+    def get_plant_info(self, plant_id: str) -> Dict[str, Any]:
+        """Get information about a specific plant"""
+        return self.structured_data.get('hierarchy', {}).get(plant_id, {})
     
-    def search_tables(self, keyword: str) -> List[str]:
-        """Search for tables matching a keyword"""
-        matching_tables = []
-        for table_name, table_info in self.structured_data.get('tables', {}).items():
-            if keyword.lower() in table_name.lower():
-                matching_tables.append(table_name)
-            elif any(keyword.lower() in col.lower() for col in table_info.get('columns', [])):
-                matching_tables.append(table_name)
-        return matching_tables
+    def get_all_plants(self) -> List[Dict[str, Any]]:
+        """Get all plants"""
+        return [
+            {"id": plant_id, "name": plant_data["name"]}
+            for plant_id, plant_data in self.structured_data.get('hierarchy', {}).items()
+        ]
+    
+    def get_sections_for_plant(self, plant_id: str) -> List[Dict[str, Any]]:
+        """Get all sections for a plant"""
+        plant = self.get_plant_info(plant_id)
+        return [
+            {"id": section_id, "name": section_data["name"], "sub_section": section_data.get("sub_section")}
+            for section_id, section_data in plant.get('sections', {}).items()
+        ]
+    
+    def get_items_for_section(self, plant_id: str, section_id: str) -> List[Dict[str, Any]]:
+        """Get all items for a section"""
+        plant = self.get_plant_info(plant_id)
+        section = plant.get('sections', {}).get(section_id, {})
+        return [
+            {"code": item_code, "description": item_data["description"], "type": item_data["type"]}
+            for item_code, item_data in section.get('items', {}).items()
+        ]
