@@ -142,6 +142,7 @@ async def send_message(message_data: ChatMessage):
             suggestions=response['suggestions'],
             context_path=response['context_path'],
             chart_data=response.get('chart_data'),
+            table_data=response.get('table_data'),
             metadata=response.get('metadata')
         )
     except Exception as e:
