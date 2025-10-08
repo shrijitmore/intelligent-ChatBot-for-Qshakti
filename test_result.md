@@ -119,6 +119,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ COMPREHENSIVE TESTING COMPLETED: All chart generation features working perfectly. Tested bar charts, pie charts, line charts, and visualization requests. Chart data structure includes proper type, title, data with labels/datasets, responsive options, and styling. API correctly returns chart_data for chart requests and null for non-chart requests. All 11 backend API tests passed (100% success rate). Chart data validation shows proper structure with realistic sample data, proper color schemes, and complete configuration for frontend rendering."
+      - working: true
+        agent: "testing"
+        comment: "✅ HIERARCHICAL CHATBOT TESTING COMPLETE: Tested new hierarchical data structure with conversational navigation. Chart generation works correctly at ITEM level with contextual data. Successfully generated line charts for quality trends using inspection readings. Chart requests like 'Create a chart' work perfectly, returning proper chart_data with type, title, labels, and datasets. Minor issue: Some specific phrases like 'Show me quality trends' may trigger navigation instead of chart generation due to embedding-based intent parsing, but core chart functionality is solid."
 
 frontend:
   - task: "Chart component creation"
