@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Send, Sparkles, RotateCcw, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import Chart from './components/Chart';
 import '@/App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
