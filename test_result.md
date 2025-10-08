@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Implement chart generation feature so the chatbot can generate and display graphs when asked"
+user_problem_statement: "Transform chatbot into hierarchical navigation system with conversational responses (no table names). Implement Plant -> Section -> Item hierarchy with natural language suggestions and support for charts/tables."
 
 backend:
   - task: "Hierarchical chatbot navigation"
