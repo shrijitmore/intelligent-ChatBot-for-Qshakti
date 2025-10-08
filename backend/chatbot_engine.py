@@ -324,6 +324,100 @@ Example: ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4", "sugge
         await self.redis_client.delete(f"{session_id}:history")
         await self.redis_client.delete(f"{session_id}:tree_path")
     
+    def _is_chart_request(self, message: str) -> bool:
+        """Check if the user is requesting a chart or visualization"""
+        chart_keywords = [
+            'chart', 'graph', 'plot', 'visualize', 'visualization', 'show me a chart',
+            'create a graph', 'bar chart', 'line chart', 'pie chart', 'histogram',
+            'scatter plot', 'trend', 'distribution', 'compare', 'breakdown'
+        ]
+        message_lower = message.lower()
+        return any(keyword in message_lower for keyword in chart_keywords)
+    
+    async def _generate_chart_data(self, message: str, relevant_tables: List[str]) -> Optional[Dict]:
+        """Generate chart data based on user request and relevant tables"""
+        if not relevant_tables:
+            return None
+        
+        # Get table information
+        table_info = {}
+        for table_name in relevant_tables[:2]:  # Limit to first 2 tables
+            table_data = self.structured_data['tables'].get(table_name, {})
+            table_info[table_name] = table_data
+        
+        # Create prompt for chart generation
+        prompt = f"""
+You are a data visualization expert. Based on the user's request and available database tables, generate chart configuration data.
+
+User Request: {message}
+
+Available Tables:
+{json.dumps(table_info, indent=2)}
+
+Generate a chart configuration that includes:
+1. Chart type (bar, line, pie, scatter, etc.)
+2. Sample data points (create realistic sample data based on the table structure)
+3. Chart title and labels
+4. Color scheme
+
+Return your response as a JSON object with this structure:
+{{
+    "type": "bar|line|pie|scatter|histogram",
+    "title": "Chart Title",
+    "data": {{
+        "labels": ["Label1", "Label2", "Label3"],
+        "datasets": [{{
+            "label": "Dataset Name",
+            "data": [10, 20, 30],
+            "backgroundColor": ["#FF6384", "#36A2EB", "#FFCE56"]
+        }}]
+    }},
+    "options": {{
+        "responsive": true,
+        "plugins": {{
+            "legend": {{"position": "top"}},
+            "title": {{"display": true, "text": "Chart Title"}}
+        }}
+    }}
+}}
+
+Make the chart relevant to the user's request and use realistic sample data that represents the type of data that would be in these tables.
+"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            chart_text = response.text.strip()
+            
+            # Clean up the response
+            chart_text = chart_text.replace('```json', '').replace('```', '').strip()
+            
+            # Parse JSON response
+            chart_data = json.loads(chart_text)
+            
+            return chart_data
+        except Exception as e:
+            self.logger.error(f"Error generating chart data: {str(e)}")
+            # Return a simple fallback chart
+            return {
+                "type": "bar",
+                "title": "Sample Data Overview",
+                "data": {
+                    "labels": ["Category A", "Category B", "Category C"],
+                    "datasets": [{
+                        "label": "Sample Data",
+                        "data": [12, 19, 8],
+                        "backgroundColor": ["#FF6384", "#36A2EB", "#FFCE56"]
+                    }]
+                },
+                "options": {
+                    "responsive": True,
+                    "plugins": {
+                        "legend": {"position": "top"},
+                        "title": {"display": True, "text": "Sample Data Overview"}
+                    }
+                }
+            }
+    
     async def _save_to_redis(self, session_id: str, key: str, data: Any):
         """Save data to Redis"""
         redis_key = f"{session_id}:{key}"
