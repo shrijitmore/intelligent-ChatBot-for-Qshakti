@@ -10,10 +10,10 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone
 import json
-import redis.asyncio as aioredis
 
 from chatbot_engine import ChatbotEngine
 from data_loader import DataLoader
+from session_store import InMemorySessionStore
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
