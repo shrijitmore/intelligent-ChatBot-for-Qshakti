@@ -222,7 +222,7 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
             return []
     
     async def _generate_response(self, query: str, relevant_tables: List[str], 
-                                  history: List[Dict], tree_path: List[str]) -> str:
+                                  history: List[Dict], tree_path: List[str], chart_data: Optional[Dict] = None) -> str:
         """Generate response using LLM"""
         # Build context about relevant tables
         tables_context = ""
