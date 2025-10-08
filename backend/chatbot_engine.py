@@ -451,36 +451,41 @@ Generate a natural response (max 150 words) that:
         parameters = list(item_data.get('parameters', {}).values())
         inspections = item_data.get('inspection_readings', [])
         
-        # Get parameter names
+        # Get all details comprehensively
         param_names = [p.get('name', '') for p in parameters if p.get('name')]
+        operation_names = [o.get('name', '') for o in operations if o.get('name')]
+        machine_names = [m.get('name', '') for m in machines if m.get('name')]
         
         prompt = f"""
-You are a manufacturing data assistant. User navigated to item: {context.get('selected_item_desc')}
+You are a manufacturing data assistant with access to COMPLETE data. User navigated to: {context.get('selected_item_desc')}
 Path: {context.get('selected_plant_name')} → {context.get('selected_section_name')} → {item_desc}
 
 User message: {message}
 
-Complete Item Details:
+COMPLETE Item Details Available:
 - Item: {item_desc}
 - Item Code: {item_code}
 - Type: {item_type}
-- Operations: {len(operations)} manufacturing operations
-- QC Machines: {len(machines)} inspection machines
-- Quality Parameters: {', '.join(param_names[:5])} (total: {len(parameters)})
-- Inspection Records: {len(inspections)} complete readings available
+- Manufacturing Operations ({len(operations)}): {', '.join(operation_names) if operation_names else 'Data available'}
+- QC Machines ({len(machines)}): {', '.join(machine_names) if machine_names else 'Data available'}
+- Quality Parameters ({len(parameters)}): {', '.join(param_names) if param_names else 'Data available'}
+- Inspection Records: {len(inspections)} complete readings with LSL/USL/Target values
 
-Generate a comprehensive response (max 200 words) that:
-1. Confirms they're viewing {item_desc}
-2. Explains what this item is and its purpose
-3. Describes the manufacturing process
-4. Lists quality parameters being monitored
-5. Mentions inspection scope and machines
-6. Offers to show:
-   - Quality trends (chart)
-   - All parameters (table)
-   - Inspection history
-   - Machine details
-7. Friendly, informative tone - NO database jargon
+Generate a COMPREHENSIVE response (max 250 words) that:
+1. Confirms they're viewing {item_desc} with full context
+2. Explains what this item is and its manufacturing purpose
+3. Lists ALL operations involved
+4. Lists ALL quality parameters being monitored  
+5. Lists ALL inspection machines used
+6. Mentions the inspection frequency and data availability
+7. Explains they have access to:
+   - {len(inspections)} inspection records
+   - Quality trends over time (chart)
+   - Complete parameter specifications (table)
+   - LSL/Target/USL values
+   - Actual vs target comparisons
+8. Use a detailed, informative tone - mention ALL available data
+9. NO database jargon - but be comprehensive and thorough
 """
         
         try:
