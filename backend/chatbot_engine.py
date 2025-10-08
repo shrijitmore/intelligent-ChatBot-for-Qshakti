@@ -185,6 +185,7 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
             'message': response_text,
             'suggestions': suggestions,
             'chart_data': chart_data,
+            'table_data': table_data,
             'timestamp': str(asyncio.get_event_loop().time())
         })
         
@@ -197,6 +198,7 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
             'suggestions': suggestions,
             'context_path': tree_path,
             'chart_data': chart_data,
+            'table_data': table_data,
             'metadata': {
                 'relevant_tables': relevant_tables
             }
