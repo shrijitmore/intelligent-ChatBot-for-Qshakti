@@ -9,7 +9,7 @@ import asyncio
 
 
 class ChatbotEngine:
-    """Main chatbot engine with LLM, embeddings, and memory"""
+    """Hierarchical chatbot engine with conversational navigation"""
     
     def __init__(self, gemini_api_key: str, redis_client, structured_data: Dict[str, Any]):
         self.gemini_api_key = gemini_api_key
@@ -25,6 +25,15 @@ class ChatbotEngine:
         self.collection = None
         
         self.logger = logging.getLogger(__name__)
+        
+        # Hierarchy levels
+        self.LEVELS = {
+            "START": 0,
+            "PLANT": 1,
+            "SECTION": 2,
+            "ITEM": 3,
+            "DETAILS": 4
+        }
     
     async def initialize(self):
         """Initialize the chatbot engine"""
@@ -36,43 +45,59 @@ class ChatbotEngine:
         
         # Create or get collection
         try:
-            self.collection = self.chroma_client.get_collection(name="schema_embeddings")
+            self.collection = self.chroma_client.get_collection(name="hierarchy_embeddings")
         except Exception:
-            self.collection = self.chroma_client.create_collection(name="schema_embeddings")
+            self.collection = self.chroma_client.create_collection(name="hierarchy_embeddings")
         
-        # Generate and store embeddings for schema
-        await self._generate_schema_embeddings()
+        # Generate and store embeddings for hierarchy
+        await self._generate_hierarchy_embeddings()
         
-        self.logger.info("Chatbot engine initialized")
+        self.logger.info("Chatbot engine initialized with hierarchical navigation")
     
-    async def _generate_schema_embeddings(self):
-        """Generate embeddings for all tables and store in ChromaDB"""
-        tables = self.structured_data.get('tables', {})
+    async def _generate_hierarchy_embeddings(self):
+        """Generate embeddings for plants, sections, and items"""
+        hierarchy = self.structured_data.get('hierarchy', {})
         
         documents = []
         metadatas = []
         ids = []
         
-        for table_name, table_info in tables.items():
-            # Create document text for embedding
-            doc_text = f"Table: {table_name}\n"
-            doc_text += f"Columns: {', '.join(table_info.get('columns', []))}\n"
-            doc_text += f"Records: {table_info.get('records', 0)}\n"
-            
-            if table_info.get('references'):
-                refs = ', '.join([f"{r['table']} via {r['via']}" for r in table_info['references']])
-                doc_text += f"References: {refs}\n"
-            
-            if table_info.get('referenced_by'):
-                refs = ', '.join([f"{r['table']} via {r['via']}" for r in table_info['referenced_by']])
-                doc_text += f"Referenced by: {refs}\n"
-            
+        # Generate embeddings for each level
+        for plant_id, plant_data in hierarchy.items():
+            # Plant level
+            doc_text = f"Plant: {plant_data['name']} (ID: {plant_id})"
             documents.append(doc_text)
             metadatas.append({
-                'table_name': table_name,
-                'type': 'table_schema'
+                'level': 'plant',
+                'plant_id': plant_id,
+                'name': plant_data['name']
             })
-            ids.append(hashlib.md5(table_name.encode()).hexdigest())
+            ids.append(f"plant_{plant_id}")
+            
+            # Section level
+            for section_id, section_data in plant_data.get('sections', {}).items():
+                doc_text = f"Section: {section_data['name']} in {plant_data['name']}"
+                documents.append(doc_text)
+                metadatas.append({
+                    'level': 'section',
+                    'plant_id': plant_id,
+                    'section_id': section_id,
+                    'name': section_data['name']
+                })
+                ids.append(f"section_{plant_id}_{section_id}")
+                
+                # Item level
+                for item_code, item_data in section_data.get('items', {}).items():
+                    doc_text = f"Item: {item_data['description']} ({item_data['type']}) in {section_data['name']}"
+                    documents.append(doc_text)
+                    metadatas.append({
+                        'level': 'item',
+                        'plant_id': plant_id,
+                        'section_id': section_id,
+                        'item_code': item_code,
+                        'description': item_data['description']
+                    })
+                    ids.append(f"item_{plant_id}_{section_id}_{item_code}")
         
         # Generate embeddings using Gemini
         try:
@@ -93,59 +118,46 @@ class ChatbotEngine:
                 ids=ids
             )
             
-            self.logger.info(f"Generated embeddings for {len(documents)} tables")
+            self.logger.info(f"Generated embeddings for {len(documents)} hierarchy items")
         except Exception as e:
             self.logger.error(f"Error generating embeddings: {str(e)}")
     
     async def generate_initial_suggestions(self, session_id: str) -> List[str]:
-        """Generate 5 initial suggestions based on the dataset"""
-        categories = self.structured_data.get('categories', {})
+        """Generate initial suggestions showing all plants"""
+        hierarchy = self.structured_data.get('hierarchy', {})
         
-        # Create prompt for LLM
-        prompt = f"""
-You are an intelligent data assistant helping users explore a Quality Control and Manufacturing Management database.
-
-Database Overview:
-{json.dumps(categories, indent=2)}
-
-Total Tables: {self.structured_data.get('total_tables', 0)}
-
-Generate 5 intelligent, diverse suggestions for what a user might want to explore or ask about this database.
-These should be actionable questions or exploration paths that help users understand the data.
-
-Format your response as a JSON array of exactly 5 strings.
-Example: ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4", "suggestion 5"]
-
-Make suggestions specific, relevant, and varied. Cover different aspects of the database.
-"""
+        # Get all plants
+        plants = [(plant_id, plant_data['name']) for plant_id, plant_data in hierarchy.items()]
         
-        try:
-            response = self.model.generate_content(prompt)
-            suggestions_text = response.text.strip()
-            
-            # Parse JSON response
-            suggestions_text = suggestions_text.replace('```json', '').replace('```', '').strip()
-            suggestions = json.loads(suggestions_text)
-            
-            # Store initial state
-            await self._save_to_redis(session_id, 'tree_path', [])
-            await self._save_to_redis(session_id, 'history', [])
-            
-            return suggestions[:5]  # Ensure we return exactly 5
-        except Exception as e:
-            self.logger.error(f"Error generating initial suggestions: {str(e)}")
-            # Fallback suggestions
-            return [
-                "Show me all inspection-related tables and their relationships",
-                "What are the main quality control parameters being tracked?",
-                "Explain the production planning workflow",
-                "How is user access and permissions managed?",
-                "What machine data is being tracked?"
-            ]
+        # Create natural language suggestions for plants
+        suggestions = []
+        for plant_id, plant_name in plants:
+            suggestions.append(f"Explore {plant_name}")
+        
+        # Add a visualization suggestion
+        suggestions.append("Show me an overview of all facilities")
+        
+        # Store initial context
+        await self._save_to_redis(session_id, 'context', {
+            'level': 'START',
+            'plant_id': None,
+            'section_id': None,
+            'item_code': None
+        })
+        await self._save_to_redis(session_id, 'tree_path', [])
+        await self._save_to_redis(session_id, 'history', [])
+        
+        return suggestions[:5]
     
     async def process_message(self, session_id: str, message: str, is_suggestion: bool) -> Dict[str, Any]:
-        """Process user message and generate response with new suggestions"""
+        """Process message with hierarchical navigation"""
         # Get current context
+        context = await self._get_from_redis(session_id, 'context', {
+            'level': 'START',
+            'plant_id': None,
+            'section_id': None,
+            'item_code': None
+        })
         history = await self._get_from_redis(session_id, 'history', [])
         tree_path = await self._get_from_redis(session_id, 'tree_path', [])
         
@@ -160,364 +172,504 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
         # Add to decision tree path
         tree_path.append(message)
         
-        # Find relevant tables using embeddings
-        relevant_tables = await self._find_relevant_tables(message)
+        # Parse user intent and update context
+        new_context = await self._parse_user_intent(message, context)
         
-        # Check if user wants a chart
-        chart_data = None
-        if self._is_chart_request(message):
-            chart_data = await self._generate_chart_data(message, relevant_tables)
-        
-        # Check if user wants a table
-        table_data = None
-        if self._is_table_request(message):
-            table_data = await self._generate_table_data(message, relevant_tables)
-        
-        # Generate response using LLM
-        response_text = await self._generate_response(message, relevant_tables, history, tree_path, chart_data)
-        
-        # Generate next suggestions
-        suggestions = await self._generate_next_suggestions(message, response_text, relevant_tables, tree_path)
+        # Generate response based on new context
+        response_data = await self._generate_contextual_response(message, new_context, history, tree_path)
         
         # Add response to history
         history.append({
             'role': 'assistant',
-            'message': response_text,
-            'suggestions': suggestions,
-            'chart_data': chart_data,
-            'table_data': table_data,
+            'message': response_data['response'],
+            'suggestions': response_data['suggestions'],
+            'chart_data': response_data.get('chart_data'),
+            'table_data': response_data.get('table_data'),
             'timestamp': str(asyncio.get_event_loop().time())
         })
         
-        # Save to Redis
+        # Save updated context and history
+        await self._save_to_redis(session_id, 'context', new_context)
         await self._save_to_redis(session_id, 'history', history)
         await self._save_to_redis(session_id, 'tree_path', tree_path)
         
         return {
-            'response': response_text,
-            'suggestions': suggestions,
+            'response': response_data['response'],
+            'suggestions': response_data['suggestions'],
             'context_path': tree_path,
-            'chart_data': chart_data,
-            'table_data': table_data,
+            'chart_data': response_data.get('chart_data'),
+            'table_data': response_data.get('table_data'),
             'metadata': {
-                'relevant_tables': relevant_tables
+                'current_level': new_context['level'],
+                'context': new_context
             }
         }
     
-    async def _find_relevant_tables(self, query: str) -> List[str]:
-        """Find relevant tables using embedding similarity search"""
+    async def _parse_user_intent(self, message: str, current_context: Dict) -> Dict:
+        """Parse user message to determine navigation intent"""
+        hierarchy = self.structured_data.get('hierarchy', {})
+        
+        # Try to find matching entities using embeddings
         try:
-            # Generate query embedding
             result = genai.embed_content(
                 model="models/text-embedding-004",
-                content=query,
+                content=message,
                 task_type="retrieval_query"
             )
             query_embedding = result['embedding']
             
-            # Search in ChromaDB
             results = self.collection.query(
                 query_embeddings=[query_embedding],
-                n_results=5
+                n_results=3
             )
             
             if results and results['metadatas']:
-                return [meta['table_name'] for meta in results['metadatas'][0]]
-            return []
+                best_match = results['metadatas'][0][0]
+                
+                # Update context based on match
+                new_context = current_context.copy()
+                
+                if best_match['level'] == 'plant':
+                    new_context['level'] = 'PLANT'
+                    new_context['plant_id'] = best_match['plant_id']
+                    new_context['section_id'] = None
+                    new_context['item_code'] = None
+                elif best_match['level'] == 'section':
+                    new_context['level'] = 'SECTION'
+                    new_context['plant_id'] = best_match['plant_id']
+                    new_context['section_id'] = best_match['section_id']
+                    new_context['item_code'] = None
+                elif best_match['level'] == 'item':
+                    new_context['level'] = 'ITEM'
+                    new_context['plant_id'] = best_match['plant_id']
+                    new_context['section_id'] = best_match['section_id']
+                    new_context['item_code'] = best_match['item_code']
+                
+                return new_context
         except Exception as e:
-            self.logger.error(f"Error finding relevant tables: {str(e)}")
-            return []
+            self.logger.error(f"Error parsing intent: {str(e)}")
+        
+        # If no clear match, stay at current level or move forward
+        return current_context
     
-    async def _generate_response(self, query: str, relevant_tables: List[str], 
-                                  history: List[Dict], tree_path: List[str], chart_data: Optional[Dict] = None) -> str:
-        """Generate response using LLM"""
-        # Build context about relevant tables
-        tables_context = ""
-        for table_name in relevant_tables:
-            table_info = self.structured_data['tables'].get(table_name, {})
-            tables_context += f"\nTable: {table_name}\n"
-            tables_context += f"Columns: {', '.join(table_info.get('columns', []))}\n"
-            if table_info.get('references'):
-                tables_context += f"References: {json.dumps(table_info['references'])}\n"
+    async def _generate_contextual_response(self, message: str, context: Dict, 
+                                           history: List[Dict], tree_path: List[str]) -> Dict[str, Any]:
+        """Generate response based on current hierarchical context"""
+        hierarchy = self.structured_data.get('hierarchy', {})
+        level = context.get('level', 'START')
+        
+        # Check for chart/table requests
+        chart_data = None
+        table_data = None
+        
+        if self._is_chart_request(message):
+            chart_data = await self._generate_chart_data_contextual(message, context)
+        
+        if self._is_table_request(message):
+            table_data = await self._generate_table_data_contextual(message, context)
+        
+        # Generate response based on level
+        if level == 'START':
+            response_text = await self._generate_start_response(message)
+            suggestions = await self._generate_plant_suggestions()
+        
+        elif level == 'PLANT':
+            plant_id = context.get('plant_id')
+            plant_data = hierarchy.get(plant_id, {})
+            response_text = await self._generate_plant_response(message, plant_data)
+            suggestions = await self._generate_section_suggestions(plant_id)
+        
+        elif level == 'SECTION':
+            plant_id = context.get('plant_id')
+            section_id = context.get('section_id')
+            plant_data = hierarchy.get(plant_id, {})
+            section_data = plant_data.get('sections', {}).get(section_id, {})
+            response_text = await self._generate_section_response(message, plant_data, section_data)
+            suggestions = await self._generate_item_suggestions(plant_id, section_id)
+        
+        elif level == 'ITEM':
+            plant_id = context.get('plant_id')
+            section_id = context.get('section_id')
+            item_code = context.get('item_code')
+            plant_data = hierarchy.get(plant_id, {})
+            section_data = plant_data.get('sections', {}).get(section_id, {})
+            item_data = section_data.get('items', {}).get(item_code, {})
+            response_text = await self._generate_item_response(message, plant_data, section_data, item_data)
+            suggestions = await self._generate_detail_suggestions(plant_id, section_id, item_code)
+        
+        else:
+            response_text = "I'm here to help you explore the manufacturing and quality control data. What would you like to know?"
+            suggestions = await self._generate_plant_suggestions()
+        
+        return {
+            'response': response_text,
+            'suggestions': suggestions,
+            'chart_data': chart_data,
+            'table_data': table_data
+        }
+    
+    async def _generate_start_response(self, message: str) -> str:
+        """Generate response for START level"""
+        summary = self.structured_data.get('summary', {})
         
         prompt = f"""
-You are an intelligent data assistant helping users explore a Quality Control and Manufacturing Management database.
+You are a friendly manufacturing data assistant. A user just started a conversation.
 
-Conversation History:
-{json.dumps(tree_path[-3:], indent=2) if len(tree_path) > 0 else 'New conversation'}
+User message: {message}
 
-Relevant Database Tables:
-{tables_context}
+System overview:
+- Total plants/facilities: {summary.get('total_plants', 0)}
+- Total sections/labs: {summary.get('total_sections', 0)}
+- Total items tracked: {summary.get('total_items', 0)}
+- Total inspection readings: {summary.get('total_inspection_readings', 0)}
 
-User Query: {query}
-
-Provide a helpful, informative response that:
-1. Directly answers the user's question
-2. References specific tables and data when relevant
-3. Explains relationships between tables if applicable
-4. Is conversational and easy to understand
-5. Highlights insights or patterns in the data structure
-
-Keep your response focused and under 150 words.
+Generate a warm, welcoming response (max 100 words) that:
+1. Greets the user naturally
+2. Briefly explains what data is available
+3. Encourages them to explore a specific facility
+4. Is conversational and human-friendly (NO technical database terms)
 """
         
         try:
             response = self.model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
-            self.logger.error(f"Error generating response: {str(e)}")
-            return "I apologize, but I encountered an error processing your question. Could you please rephrase it?"
+            self.logger.error(f"Error generating start response: {str(e)}")
+            return "Welcome! I can help you explore our manufacturing facilities and quality control data. We track several plants with numerous sections, items, and inspection processes. Which facility would you like to explore first?"
     
-    async def _generate_next_suggestions(self, query: str, response: str, 
-                                          relevant_tables: List[str], tree_path: List[str]) -> List[str]:
-        """Generate 5 next suggestions based on conversation context"""
+    async def _generate_plant_response(self, message: str, plant_data: Dict) -> str:
+        """Generate response for PLANT level"""
+        plant_name = plant_data.get('name', 'this facility')
+        sections = plant_data.get('sections', {})
+        section_names = [s['name'] for s in sections.values()]
+        
         prompt = f"""
-You are an intelligent data assistant. Based on the current conversation, generate 5 smart follow-up suggestions.
+You are a manufacturing data assistant. User is exploring a specific plant/facility.
 
-Conversation Path: {' -> '.join(tree_path[-3:]) if tree_path else 'Starting'}
-Last Question: {query}
-Last Response: {response}
-Relevant Tables: {', '.join(relevant_tables)}
+User message: {message}
 
-Generate 5 diverse, actionable follow-up questions or exploration paths that:
-1. Build on the current context
-2. Explore deeper into the current topic
-3. Connect to related areas
-4. Help users discover new insights
-5. Are specific and clear
+Plant: {plant_name}
+Sections available: {', '.join(section_names[:5])}
+Total sections: {len(sections)}
 
-Format your response as a JSON array of exactly 5 strings.
-Example: ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4", "suggestion 5"]
-"""
-        
-        try:
-            response_obj = self.model.generate_content(prompt)
-            suggestions_text = response_obj.text.strip()
-            
-            # Parse JSON response
-            suggestions_text = suggestions_text.replace('```json', '').replace('```', '').strip()
-            suggestions = json.loads(suggestions_text)
-            
-            return suggestions[:5]
-        except Exception as e:
-            self.logger.error(f"Error generating suggestions: {str(e)}")
-            # Fallback suggestions based on relevant tables
-            if relevant_tables:
-                return [
-                    f"Tell me more about {relevant_tables[0]}",
-                    f"How does {relevant_tables[0]} relate to other tables?",
-                    "What are the key metrics I can track?",
-                    "Show me data quality insights",
-                    "Start a different exploration"
-                ]
-            return [
-                "Explore inspection data",
-                "Look at production planning",
-                "Check user management",
-                "Review machine operations",
-                "Start over"
-            ]
-    
-    async def get_history(self, session_id: str) -> List[Dict[str, Any]]:
-        """Get chat history for a session"""
-        return await self._get_from_redis(session_id, 'history', [])
-    
-    async def get_decision_tree(self, session_id: str) -> List[str]:
-        """Get decision tree path for a session"""
-        return await self._get_from_redis(session_id, 'tree_path', [])
-    
-    async def reset_session(self, session_id: str):
-        """Reset a chat session"""
-        await self.redis_client.delete(f"{session_id}:history")
-        await self.redis_client.delete(f"{session_id}:tree_path")
-    
-    def _is_chart_request(self, message: str) -> bool:
-        """Check if the user is requesting a chart or visualization"""
-        chart_keywords = [
-            'chart', 'graph', 'plot', 'visualize', 'visualization', 'show me a chart',
-            'create a graph', 'bar chart', 'line chart', 'pie chart', 'histogram',
-            'scatter plot', 'trend', 'distribution', 'compare', 'breakdown'
-        ]
-        message_lower = message.lower()
-        return any(keyword in message_lower for keyword in chart_keywords)
-    
-    async def _generate_chart_data(self, message: str, relevant_tables: List[str]) -> Optional[Dict]:
-        """Generate chart data based on user request and relevant tables"""
-        if not relevant_tables:
-            return None
-        
-        # Get table information
-        table_info = {}
-        for table_name in relevant_tables[:2]:  # Limit to first 2 tables
-            table_data = self.structured_data['tables'].get(table_name, {})
-            table_info[table_name] = table_data
-        
-        # Create prompt for chart generation
-        prompt = f"""
-You are a data visualization expert. Based on the user's request and available database tables, generate chart configuration data.
-
-User Request: {message}
-
-Available Tables:
-{json.dumps(table_info, indent=2)}
-
-Generate a chart configuration that includes:
-1. Chart type (bar, line, pie, scatter, etc.)
-2. Sample data points (create realistic sample data based on the table structure)
-3. Chart title and labels
-4. Color scheme
-
-Return your response as a JSON object with this structure:
-{{
-    "type": "bar|line|pie|scatter|histogram",
-    "title": "Chart Title",
-    "data": {{
-        "labels": ["Label1", "Label2", "Label3"],
-        "datasets": [{{
-            "label": "Dataset Name",
-            "data": [10, 20, 30],
-            "backgroundColor": ["#FF6384", "#36A2EB", "#FFCE56"]
-        }}]
-    }},
-    "options": {{
-        "responsive": true,
-        "plugins": {{
-            "legend": {{"position": "top"}},
-            "title": {{"display": true, "text": "Chart Title"}}
-        }}
-    }}
-}}
-
-Make the chart relevant to the user's request and use realistic sample data that represents the type of data that would be in these tables.
+Generate a conversational response (max 120 words) that:
+1. Acknowledges the user's interest in this plant
+2. Describes what this facility does (infer from sections/context)
+3. Mentions key sections naturally
+4. Encourages deeper exploration
+5. NO database/table terminology - speak naturally
 """
         
         try:
             response = self.model.generate_content(prompt)
-            chart_text = response.text.strip()
-            
-            # Clean up the response
-            chart_text = chart_text.replace('```json', '').replace('```', '').strip()
-            
-            # Parse JSON response
-            chart_data = json.loads(chart_text)
-            
-            return chart_data
+            return response.text.strip()
         except Exception as e:
-            self.logger.error(f"Error generating chart data: {str(e)}")
-            # Return a simple fallback chart
+            self.logger.error(f"Error generating plant response: {str(e)}")
+            return f"{plant_name} has {len(sections)} sections including {', '.join(section_names[:3])}. Which section would you like to explore?"
+    
+    async def _generate_section_response(self, message: str, plant_data: Dict, section_data: Dict) -> str:
+        """Generate response for SECTION level"""
+        plant_name = plant_data.get('name', 'the facility')
+        section_name = section_data.get('name', 'this section')
+        items = section_data.get('items', {})
+        item_descs = [i['description'] for i in items.values()]
+        
+        prompt = f"""
+You are a manufacturing data assistant. User is exploring a specific section.
+
+User message: {message}
+
+Context:
+- Plant: {plant_name}
+- Section: {section_name}
+- Items produced: {', '.join(item_descs[:3])}
+- Total items: {len(items)}
+
+Generate a natural response (max 120 words) that:
+1. Describes this section's role/purpose
+2. Mentions key items produced here
+3. Makes it interesting and informative
+4. NO technical database terms
+5. Encourages exploring specific items
+"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            self.logger.error(f"Error generating section response: {str(e)}")
+            return f"The {section_name} section at {plant_name} handles {len(items)} different items including {', '.join(item_descs[:2])}. Would you like to see details about any specific item?"
+    
+    async def _generate_item_response(self, message: str, plant_data: Dict, section_data: Dict, item_data: Dict) -> str:
+        """Generate response for ITEM level"""
+        item_desc = item_data.get('description', 'this item')
+        item_type = item_data.get('type', '')
+        operations = list(item_data.get('operations', {}).values())
+        machines = list(item_data.get('machines', {}).values())
+        parameters = list(item_data.get('parameters', {}).values())
+        inspections = item_data.get('inspection_readings', [])
+        
+        prompt = f"""
+You are a manufacturing data assistant. User is exploring a specific item/product.
+
+User message: {message}
+
+Item: {item_desc} ({item_type})
+Operations: {len(operations)} different operations
+QC Machines: {len(machines)} machines used
+Quality Parameters: {len(parameters)} parameters monitored
+Inspection Records: {len(inspections)} readings available
+
+Generate an informative response (max 150 words) that:
+1. Describes what this item is
+2. Explains the manufacturing/inspection process naturally
+3. Mentions key quality checks
+4. Offers to show specific data (charts, inspection details)
+5. Be conversational - NO database jargon
+"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            self.logger.error(f"Error generating item response: {str(e)}")
+            return f"{item_desc} undergoes {len(operations)} operations with {len(parameters)} quality parameters monitored. We have {len(inspections)} inspection readings. Would you like to see quality trends or inspection details?"
+    
+    async def _generate_plant_suggestions(self) -> List[str]:
+        """Generate suggestions for plant selection"""
+        hierarchy = self.structured_data.get('hierarchy', {})
+        plants = [(plant_id, plant_data['name']) for plant_id, plant_data in hierarchy.items()]
+        
+        suggestions = []
+        for plant_id, plant_name in plants[:4]:
+            suggestions.append(f"Explore {plant_name}")
+        
+        if len(suggestions) < 5:
+            suggestions.append("Show me a comparison of all facilities")
+        
+        return suggestions[:5]
+    
+    async def _generate_section_suggestions(self, plant_id: str) -> List[str]:
+        """Generate suggestions for section selection within a plant"""
+        hierarchy = self.structured_data.get('hierarchy', {})
+        plant_data = hierarchy.get(plant_id, {})
+        sections = plant_data.get('sections', {})
+        
+        suggestions = []
+        for section_id, section_data in list(sections.items())[:3]:
+            suggestions.append(f"Show me {section_data['name']}")
+        
+        suggestions.append(f"What items are produced at {plant_data['name']}?")
+        suggestions.append("Show me production overview")
+        
+        return suggestions[:5]
+    
+    async def _generate_item_suggestions(self, plant_id: str, section_id: str) -> List[str]:
+        """Generate suggestions for item selection within a section"""
+        hierarchy = self.structured_data.get('hierarchy', {})
+        plant_data = hierarchy.get(plant_id, {})
+        section_data = plant_data.get('sections', {}).get(section_id, {})
+        items = section_data.get('items', {})
+        
+        suggestions = []
+        for item_code, item_data in list(items.items())[:3]:
+            desc = item_data['description']
+            # Shorten if too long
+            if len(desc) > 40:
+                desc = desc[:37] + "..."
+            suggestions.append(f"Tell me about {desc}")
+        
+        suggestions.append("Show quality control data")
+        suggestions.append("What inspection parameters are tracked?")
+        
+        return suggestions[:5]
+    
+    async def _generate_detail_suggestions(self, plant_id: str, section_id: str, item_code: str) -> List[str]:
+        """Generate suggestions for detailed exploration"""
+        suggestions = [
+            "Show me quality trends over time",
+            "What machines are used for inspection?",
+            "Display all inspection parameters",
+            "Show me recent inspection results",
+            "Compare actual vs target values"
+        ]
+        
+        return suggestions[:5]
+    
+    def _is_chart_request(self, message: str) -> bool:
+        """Check if user wants a chart"""
+        keywords = ['chart', 'graph', 'plot', 'visualize', 'visualization', 'trend', 'show me', 'display']
+        return any(kw in message.lower() for kw in keywords)
+    
+    def _is_table_request(self, message: str) -> bool:
+        """Check if user wants a table"""
+        keywords = ['list all', 'show all', 'display all', 'table', 'list the', 'enumerate']
+        return any(kw in message.lower() for kw in keywords)
+    
+    async def _generate_chart_data_contextual(self, message: str, context: Dict) -> Optional[Dict]:
+        """Generate chart based on current context"""
+        hierarchy = self.structured_data.get('hierarchy', {})
+        level = context.get('level', 'START')
+        
+        if level == 'ITEM':
+            plant_id = context.get('plant_id')
+            section_id = context.get('section_id')
+            item_code = context.get('item_code')
+            
+            plant_data = hierarchy.get(plant_id, {})
+            section_data = plant_data.get('sections', {}).get(section_id, {})
+            item_data = section_data.get('items', {}).get(item_code, {})
+            
+            inspections = item_data.get('inspection_readings', [])
+            
+            if inspections:
+                # Create quality trend chart
+                labels = [f"Reading {i+1}" for i in range(min(10, len(inspections)))]
+                actual_values = []
+                
+                for insp in inspections[:10]:
+                    readings = insp.get('actual_readings', [])
+                    if readings:
+                        if isinstance(readings[0], dict):
+                            actual_values.append(int(readings[0].get('accepted', 0)))
+                        else:
+                            actual_values.append(float(readings[0]) if readings[0] else 0)
+                
+                return {
+                    "type": "line",
+                    "title": f"Quality Trend for {item_data.get('description', 'Item')}",
+                    "data": {
+                        "labels": labels,
+                        "datasets": [{
+                            "label": "Inspection Values",
+                            "data": actual_values,
+                            "borderColor": "#36A2EB",
+                            "backgroundColor": "rgba(54, 162, 235, 0.2)",
+                            "tension": 0.4
+                        }]
+                    },
+                    "options": {
+                        "responsive": True,
+                        "plugins": {
+                            "legend": {"position": "top"},
+                            "title": {"display": True, "text": f"Quality Trend"}
+                        }
+                    }
+                }
+        
+        elif level == 'PLANT':
+            plant_id = context.get('plant_id')
+            plant_data = hierarchy.get(plant_id, {})
+            sections = plant_data.get('sections', {})
+            
+            # Create section overview chart
+            section_names = []
+            item_counts = []
+            
+            for section_id, section_data in list(sections.items())[:8]:
+                section_names.append(section_data['name'][:20])
+                item_counts.append(len(section_data.get('items', {})))
+            
             return {
                 "type": "bar",
-                "title": "Sample Data Overview",
+                "title": f"Sections at {plant_data.get('name', 'Plant')}",
                 "data": {
-                    "labels": ["Category A", "Category B", "Category C"],
+                    "labels": section_names,
                     "datasets": [{
-                        "label": "Sample Data",
-                        "data": [12, 19, 8],
-                        "backgroundColor": ["#FF6384", "#36A2EB", "#FFCE56"]
+                        "label": "Items per Section",
+                        "data": item_counts,
+                        "backgroundColor": "#FF6384"
                     }]
                 },
                 "options": {
                     "responsive": True,
                     "plugins": {
                         "legend": {"position": "top"},
-                        "title": {"display": True, "text": "Sample Data Overview"}
+                        "title": {"display": True, "text": "Items per Section"}
                     }
                 }
             }
+        
+        return None
     
-    def _is_table_request(self, message: str) -> bool:
-        """Check if the user is requesting tabular data"""
-        table_keywords = [
-            'list all', 'show all', 'list the', 'show the', 'display all',
-            'all tables', 'all parameters', 'all columns', 'all records',
-            'what are the', 'what tables', 'enumerate', 'give me all',
-            'show me all', 'display the', 'list of', 'table of'
-        ]
-        message_lower = message.lower()
-        return any(keyword in message_lower for keyword in table_keywords)
-    
-    async def _generate_table_data(self, message: str, relevant_tables: List[str]) -> Optional[Dict]:
-        """Generate table data based on user request and relevant tables"""
-        if not relevant_tables:
-            return None
+    async def _generate_table_data_contextual(self, message: str, context: Dict) -> Optional[Dict]:
+        """Generate table based on current context"""
+        hierarchy = self.structured_data.get('hierarchy', {})
+        level = context.get('level', 'START')
         
-        # Get table information
-        tables_info = []
-        for table_name in relevant_tables[:5]:  # Limit to first 5 tables
-            table_data = self.structured_data['tables'].get(table_name, {})
-            if table_data:
-                tables_info.append({
-                    'name': table_name,
-                    'columns': table_data.get('columns', []),
-                    'records': table_data.get('records', 0),
-                    'references': table_data.get('references', []),
-                    'referenced_by': table_data.get('referenced_by', [])
-                })
-        
-        # Create prompt for table generation
-        prompt = f"""
-You are a data analyst. Based on the user's request and available database tables, generate a structured table.
-
-User Request: {message}
-
-Available Tables:
-{json.dumps(tables_info, indent=2)}
-
-Create a table that answers the user's request. Return a JSON object with this structure:
-{{
-    "title": "Table Title",
-    "columns": ["Column1", "Column2", "Column3"],
-    "rows": [
-        ["value1", "value2", "value3"],
-        ["value4", "value5", "value6"]
-    ],
-    "description": "Brief description of what this table shows"
-}}
-
-Make the table relevant, comprehensive, and use the actual data from the tables provided.
-For example, if asked about "all parameters", list parameter names, descriptions, and related tables.
-If asked about "all tables", list table names, number of records, and key information.
-"""
-        
-        try:
-            response = self.model.generate_content(prompt)
-            table_text = response.text.strip()
+        if level == 'ITEM':
+            plant_id = context.get('plant_id')
+            section_id = context.get('section_id')
+            item_code = context.get('item_code')
             
-            # Clean up the response
-            table_text = table_text.replace('```json', '').replace('```', '').strip()
+            plant_data = hierarchy.get(plant_id, {})
+            section_data = plant_data.get('sections', {}).get(section_id, {})
+            item_data = section_data.get('items', {}).get(item_code, {})
             
-            # Parse JSON response
-            table_data = json.loads(table_text)
+            parameters = item_data.get('parameters', {})
             
-            return table_data
-        except Exception as e:
-            self.logger.error(f"Error generating table data: {str(e)}")
-            # Return a fallback table with actual data
-            if relevant_tables:
+            if parameters:
+                rows = []
+                for param_id, param_data in parameters.items():
+                    rows.append([
+                        param_data.get('name', ''),
+                        param_data.get('description', '')
+                    ])
+                
                 return {
-                    "title": "Relevant Tables",
-                    "columns": ["Table Name", "Records", "Key Columns"],
-                    "rows": [
-                        [
-                            table_name,
-                            str(self.structured_data['tables'].get(table_name, {}).get('records', 0)),
-                            ', '.join(self.structured_data['tables'].get(table_name, {}).get('columns', [])[:3])
-                        ]
-                        for table_name in relevant_tables[:5]
-                    ],
-                    "description": "Overview of relevant database tables"
+                    "title": f"Quality Parameters for {item_data.get('description', 'Item')}",
+                    "columns": ["Parameter", "Description"],
+                    "rows": rows,
+                    "description": "All quality control parameters monitored for this item"
                 }
-            return None
+        
+        elif level == 'SECTION':
+            plant_id = context.get('plant_id')
+            section_id = context.get('section_id')
+            
+            plant_data = hierarchy.get(plant_id, {})
+            section_data = plant_data.get('sections', {}).get(section_id, {})
+            items = section_data.get('items', {})
+            
+            rows = []
+            for item_code, item_data in items.items():
+                rows.append([
+                    item_data.get('description', ''),
+                    item_data.get('type', ''),
+                    str(len(item_data.get('inspection_readings', [])))
+                ])
+            
+            return {
+                "title": f"Items in {section_data.get('name', 'Section')}",
+                "columns": ["Item", "Type", "Inspection Records"],
+                "rows": rows,
+                "description": "All items produced in this section"
+            }
+        
+        return None
+    
+    async def get_history(self, session_id: str) -> List[Dict[str, Any]]:
+        """Get chat history"""
+        return await self._get_from_redis(session_id, 'history', [])
+    
+    async def get_decision_tree(self, session_id: str) -> List[str]:
+        """Get decision tree path"""
+        return await self._get_from_redis(session_id, 'tree_path', [])
+    
+    async def reset_session(self, session_id: str):
+        """Reset session"""
+        await self.redis_client.delete(f"{session_id}:history")
+        await self.redis_client.delete(f"{session_id}:tree_path")
+        await self.redis_client.delete(f"{session_id}:context")
     
     async def _save_to_redis(self, session_id: str, key: str, data: Any):
-        """Save data to Redis"""
+        """Save to Redis"""
         redis_key = f"{session_id}:{key}"
         await self.redis_client.set(redis_key, json.dumps(data))
-        # Set expiration to 24 hours
         await self.redis_client.expire(redis_key, 86400)
     
     async def _get_from_redis(self, session_id: str, key: str, default: Any = None) -> Any:
-        """Get data from Redis"""
+        """Get from Redis"""
         redis_key = f"{session_id}:{key}"
         data = await self.redis_client.get(redis_key)
         if data:
