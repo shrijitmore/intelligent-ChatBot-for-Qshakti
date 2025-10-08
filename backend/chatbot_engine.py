@@ -367,27 +367,33 @@ Generate a warm, welcoming response (max 100 words) that:
             self.logger.error(f"Error generating start response: {str(e)}")
             return "Welcome! I can help you explore our manufacturing facilities and quality control data. We track several plants with numerous sections, items, and inspection processes. Which facility would you like to explore first?"
     
-    async def _generate_plant_response(self, message: str, plant_data: Dict) -> str:
-        """Generate response for PLANT level"""
+    async def _generate_plant_response(self, message: str, plant_data: Dict, context: Dict) -> str:
+        """Generate response for PLANT level with context memory"""
         plant_name = plant_data.get('name', 'this facility')
         sections = plant_data.get('sections', {})
         section_names = [s['name'] for s in sections.values()]
         
+        # Get total items in this plant
+        total_items = sum(len(s.get('items', {})) for s in sections.values())
+        
         prompt = f"""
-You are a manufacturing data assistant. User is exploring a specific plant/facility.
+You are a manufacturing data assistant. User selected: {context.get('selected_plant_name', plant_name)}
 
 User message: {message}
 
-Plant: {plant_name}
-Sections available: {', '.join(section_names[:5])}
-Total sections: {len(sections)}
+Plant Details:
+- Name: {plant_name}
+- Sections/Buildings: {', '.join(section_names[:8])}
+- Total sections: {len(sections)}
+- Total items produced: {total_items}
 
-Generate a conversational response (max 120 words) that:
-1. Acknowledges the user's interest in this plant
-2. Describes what this facility does (infer from sections/context)
-3. Mentions key sections naturally
-4. Encourages deeper exploration
-5. NO database/table terminology - speak naturally
+Generate a conversational response (max 150 words) that:
+1. Acknowledges their selection of {plant_name}
+2. Describes what this facility manufactures
+3. Lists key sections/buildings naturally
+4. Mentions the scope (items, operations)
+5. Encourages exploring specific sections
+6. NO database jargon - speak naturally as a guide
 """
         
         try:
@@ -395,7 +401,7 @@ Generate a conversational response (max 120 words) that:
             return response.text.strip()
         except Exception as e:
             self.logger.error(f"Error generating plant response: {str(e)}")
-            return f"{plant_name} has {len(sections)} sections including {', '.join(section_names[:3])}. Which section would you like to explore?"
+            return f"You've selected {plant_name}, which has {len(sections)} sections/buildings including {', '.join(section_names[:3])}. We track {total_items} different items here. Which section would you like to explore?"
     
     async def _generate_section_response(self, message: str, plant_data: Dict, section_data: Dict) -> str:
         """Generate response for SECTION level"""
