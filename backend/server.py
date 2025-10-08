@@ -76,9 +76,9 @@ async def startup_event():
     redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379')
     redis_client = await aioredis.from_url(redis_url, decode_responses=True)
     
-    # Load the database schema
-    schema_path = ROOT_DIR / 'database_schema.txt'
-    data_loader = DataLoader(str(schema_path))
+    # Load the inspection data
+    data_path = ROOT_DIR / 'data.txt'
+    data_loader = DataLoader(str(data_path))
     structured_data = data_loader.load_and_structure()
     
     # Initialize chatbot engine
