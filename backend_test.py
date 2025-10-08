@@ -389,6 +389,339 @@ class ChatbotAPITester:
             self.log_test("Session Reset", False, f"Error: {str(e)}")
             return False
     
+    def test_table_generation_inspection_parameters(self):
+        """Test table generation with inspection parameters request"""
+        try:
+            payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "List all inspection parameters",
+                "is_suggestion": False
+            }
+            response = requests.post(f"{self.base_url}/chat/message", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check if table_data is present and properly structured
+                if data.get("table_data"):
+                    table_data = data["table_data"]
+                    required_table_fields = ["title", "columns", "rows", "description"]
+                    
+                    if all(field in table_data for field in required_table_fields):
+                        # Verify table data structure
+                        title = table_data.get("title")
+                        columns = table_data.get("columns")
+                        rows = table_data.get("rows")
+                        description = table_data.get("description")
+                        
+                        if isinstance(columns, list) and len(columns) > 0:
+                            if isinstance(rows, list) and len(rows) > 0:
+                                # Check that chart_data is null for table requests
+                                if data.get("chart_data") is None:
+                                    self.log_test("Table Generation - Inspection Parameters", True, 
+                                                f"Table generated successfully: {title}", data)
+                                    return True
+                                else:
+                                    self.log_test("Table Generation - Inspection Parameters", False, 
+                                                "chart_data should be null for table requests")
+                                    return False
+                            else:
+                                self.log_test("Table Generation - Inspection Parameters", False, 
+                                            "Rows should be non-empty array")
+                                return False
+                        else:
+                            self.log_test("Table Generation - Inspection Parameters", False, 
+                                        "Columns should be non-empty array")
+                            return False
+                    else:
+                        missing = [f for f in required_table_fields if f not in table_data]
+                        self.log_test("Table Generation - Inspection Parameters", False, 
+                                    f"Table data missing fields: {missing}")
+                        return False
+                else:
+                    self.log_test("Table Generation - Inspection Parameters", False, 
+                                "No table_data returned for table request")
+                    return False
+            else:
+                self.log_test("Table Generation - Inspection Parameters", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+        except Exception as e:
+            self.log_test("Table Generation - Inspection Parameters", False, f"Error: {str(e)}")
+            return False
+    
+    def test_table_generation_quality_control(self):
+        """Test table generation with quality control tables request"""
+        try:
+            payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "Show all tables related to quality control",
+                "is_suggestion": False
+            }
+            response = requests.post(f"{self.base_url}/chat/message", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("table_data"):
+                    table_data = data["table_data"]
+                    if "title" in table_data and "quality" in table_data["title"].lower():
+                        self.log_test("Table Generation - Quality Control", True, 
+                                    f"Quality control table generated: {table_data['title']}", data)
+                        return True
+                    else:
+                        self.log_test("Table Generation - Quality Control", True, 
+                                    f"Table generated (title may vary): {table_data.get('title', 'No title')}", data)
+                        return True
+                else:
+                    self.log_test("Table Generation - Quality Control", False, 
+                                "No table_data returned for quality control request")
+                    return False
+            else:
+                self.log_test("Table Generation - Quality Control", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+        except Exception as e:
+            self.log_test("Table Generation - Quality Control", False, f"Error: {str(e)}")
+            return False
+    
+    def test_table_generation_machine_info(self):
+        """Test table generation with machine information request"""
+        try:
+            payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "Display all machine information",
+                "is_suggestion": False
+            }
+            response = requests.post(f"{self.base_url}/chat/message", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("table_data"):
+                    table_data = data["table_data"]
+                    # Verify proper table structure
+                    if isinstance(table_data.get("columns"), list) and isinstance(table_data.get("rows"), list):
+                        self.log_test("Table Generation - Machine Info", True, 
+                                    f"Machine info table generated: {table_data.get('title', 'Machine Data')}", data)
+                        return True
+                    else:
+                        self.log_test("Table Generation - Machine Info", False, 
+                                    "Invalid table structure (columns/rows not arrays)")
+                        return False
+                else:
+                    self.log_test("Table Generation - Machine Info", False, 
+                                "No table_data returned for machine info request")
+                    return False
+            else:
+                self.log_test("Table Generation - Machine Info", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+        except Exception as e:
+            self.log_test("Table Generation - Machine Info", False, f"Error: {str(e)}")
+            return False
+    
+    def test_table_generation_operations(self):
+        """Test table generation with operations request"""
+        try:
+            payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "What are all the operations?",
+                "is_suggestion": False
+            }
+            response = requests.post(f"{self.base_url}/chat/message", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("table_data"):
+                    table_data = data["table_data"]
+                    # Check that we have meaningful data
+                    if len(table_data.get("rows", [])) > 0:
+                        self.log_test("Table Generation - Operations", True, 
+                                    f"Operations table generated with {len(table_data['rows'])} rows", data)
+                        return True
+                    else:
+                        self.log_test("Table Generation - Operations", False, 
+                                    "Table generated but no data rows")
+                        return False
+                else:
+                    self.log_test("Table Generation - Operations", False, 
+                                "No table_data returned for operations request")
+                    return False
+            else:
+                self.log_test("Table Generation - Operations", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+        except Exception as e:
+            self.log_test("Table Generation - Operations", False, f"Error: {str(e)}")
+            return False
+    
+    def test_table_generation_user_management(self):
+        """Test table generation with user management request"""
+        try:
+            payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "Give me all user management tables",
+                "is_suggestion": False
+            }
+            response = requests.post(f"{self.base_url}/chat/message", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("table_data"):
+                    table_data = data["table_data"]
+                    # Verify description mentions user management
+                    description = table_data.get("description", "").lower()
+                    if "user" in description or "management" in description or len(table_data.get("rows", [])) > 0:
+                        self.log_test("Table Generation - User Management", True, 
+                                    f"User management table generated: {table_data.get('title', 'User Data')}", data)
+                        return True
+                    else:
+                        self.log_test("Table Generation - User Management", False, 
+                                    "Table doesn't seem related to user management")
+                        return False
+                else:
+                    self.log_test("Table Generation - User Management", False, 
+                                "No table_data returned for user management request")
+                    return False
+            else:
+                self.log_test("Table Generation - User Management", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+        except Exception as e:
+            self.log_test("Table Generation - User Management", False, f"Error: {str(e)}")
+            return False
+    
+    def test_regular_query_no_chart_no_table(self):
+        """Test regular query that should return neither chart nor table data"""
+        try:
+            payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "Explain the inspection workflow",
+                "is_suggestion": False
+            }
+            response = requests.post(f"{self.base_url}/chat/message", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check that both chart_data and table_data are null
+                if data.get("chart_data") is None and data.get("table_data") is None:
+                    if len(data.get("response", "")) > 0:
+                        self.log_test("Regular Query - No Chart/Table", True, 
+                                    "Regular query processed correctly (no chart/table data)", data)
+                        return True
+                    else:
+                        self.log_test("Regular Query - No Chart/Table", False, 
+                                    "No response text provided")
+                        return False
+                else:
+                    chart_status = "present" if data.get("chart_data") else "null"
+                    table_status = "present" if data.get("table_data") else "null"
+                    self.log_test("Regular Query - No Chart/Table", False, 
+                                f"Expected both null, got chart_data: {chart_status}, table_data: {table_status}")
+                    return False
+            else:
+                self.log_test("Regular Query - No Chart/Table", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+        except Exception as e:
+            self.log_test("Regular Query - No Chart/Table", False, f"Error: {str(e)}")
+            return False
+    
+    def test_database_permissions_query(self):
+        """Test regular query about database permissions"""
+        try:
+            payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "How does the database handle user permissions?",
+                "is_suggestion": False
+            }
+            response = requests.post(f"{self.base_url}/chat/message", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Should be regular response with no chart/table data
+                if data.get("chart_data") is None and data.get("table_data") is None:
+                    if "permission" in data.get("response", "").lower() or len(data.get("response", "")) > 50:
+                        self.log_test("Database Permissions Query", True, 
+                                    "Permissions query answered correctly", data)
+                        return True
+                    else:
+                        self.log_test("Database Permissions Query", False, 
+                                    "Response doesn't address permissions or too short")
+                        return False
+                else:
+                    self.log_test("Database Permissions Query", False, 
+                                "Regular query should not return chart/table data")
+                    return False
+            else:
+                self.log_test("Database Permissions Query", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+        except Exception as e:
+            self.log_test("Database Permissions Query", False, f"Error: {str(e)}")
+            return False
+    
+    def test_combined_conversation_persistence(self):
+        """Test that both chart and table data can exist in conversation history"""
+        try:
+            # First make a chart request
+            chart_payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "Show me a bar chart of inspection types",
+                "is_suggestion": False
+            }
+            chart_response = requests.post(f"{self.base_url}/chat/message", json=chart_payload)
+            
+            if chart_response.status_code != 200:
+                self.log_test("Combined Conversation - Chart", False, 
+                            f"Chart request failed: {chart_response.status_code}")
+                return False
+            
+            # Then make a table request
+            table_payload = {
+                "session_id": self.session_id or TEST_SESSION_ID,
+                "message": "List all inspection parameters",
+                "is_suggestion": False
+            }
+            table_response = requests.post(f"{self.base_url}/chat/message", json=table_payload)
+            
+            if table_response.status_code != 200:
+                self.log_test("Combined Conversation - Table", False, 
+                            f"Table request failed: {table_response.status_code}")
+                return False
+            
+            # Check history contains both
+            history_response = requests.get(f"{self.base_url}/chat/history/{self.session_id or TEST_SESSION_ID}")
+            
+            if history_response.status_code == 200:
+                history_data = history_response.json()
+                messages = history_data.get("messages", [])
+                
+                # Look for both chart and table data in history
+                has_chart = any(msg.get("chart_data") for msg in messages)
+                has_table = any(msg.get("table_data") for msg in messages)
+                
+                if has_chart and has_table:
+                    self.log_test("Combined Conversation Persistence", True, 
+                                f"Both chart and table data found in history ({len(messages)} messages)", history_data)
+                    return True
+                else:
+                    self.log_test("Combined Conversation Persistence", False, 
+                                f"Missing data in history - chart: {has_chart}, table: {has_table}")
+                    return False
+            else:
+                self.log_test("Combined Conversation Persistence", False, 
+                            f"History request failed: {history_response.status_code}")
+                return False
+        except Exception as e:
+            self.log_test("Combined Conversation Persistence", False, f"Error: {str(e)}")
+            return False
+    
     def test_metadata_and_suggestions(self):
         """Test that responses include proper metadata and suggestions"""
         try:
