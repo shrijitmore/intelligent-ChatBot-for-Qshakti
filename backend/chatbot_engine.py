@@ -163,8 +163,13 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
         # Find relevant tables using embeddings
         relevant_tables = await self._find_relevant_tables(message)
         
+        # Check if user wants a chart
+        chart_data = None
+        if self._is_chart_request(message):
+            chart_data = await self._generate_chart_data(message, relevant_tables)
+        
         # Generate response using LLM
-        response_text = await self._generate_response(message, relevant_tables, history, tree_path)
+        response_text = await self._generate_response(message, relevant_tables, history, tree_path, chart_data)
         
         # Generate next suggestions
         suggestions = await self._generate_next_suggestions(message, response_text, relevant_tables, tree_path)
@@ -174,6 +179,7 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
             'role': 'assistant',
             'message': response_text,
             'suggestions': suggestions,
+            'chart_data': chart_data,
             'timestamp': str(asyncio.get_event_loop().time())
         })
         
@@ -185,6 +191,7 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
             'response': response_text,
             'suggestions': suggestions,
             'context_path': tree_path,
+            'chart_data': chart_data,
             'metadata': {
                 'relevant_tables': relevant_tables
             }
