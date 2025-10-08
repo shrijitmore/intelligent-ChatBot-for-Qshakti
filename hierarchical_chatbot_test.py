@@ -262,7 +262,7 @@ class HierarchicalChatbotTester:
         try:
             payload = {
                 "session_id": self.session_id or TEST_SESSION_ID,
-                "message": "Show me quality trends",
+                "message": "Create a chart",
                 "is_suggestion": False
             }
             response = requests.post(f"{self.base_url}/chat/message", json=payload)
