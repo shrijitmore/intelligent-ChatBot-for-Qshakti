@@ -168,6 +168,11 @@ Make suggestions specific, relevant, and varied. Cover different aspects of the 
         if self._is_chart_request(message):
             chart_data = await self._generate_chart_data(message, relevant_tables)
         
+        # Check if user wants a table
+        table_data = None
+        if self._is_table_request(message):
+            table_data = await self._generate_table_data(message, relevant_tables)
+        
         # Generate response using LLM
         response_text = await self._generate_response(message, relevant_tables, history, tree_path, chart_data)
         
