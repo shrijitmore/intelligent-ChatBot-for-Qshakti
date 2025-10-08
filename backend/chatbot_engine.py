@@ -281,18 +281,21 @@ class ChatbotEngine:
     
     async def _generate_contextual_response(self, message: str, context: Dict, 
                                            history: List[Dict], tree_path: List[str]) -> Dict[str, Any]:
-        """Generate response based on current hierarchical context"""
+        """Generate response based on current hierarchical context with intelligent format detection"""
         hierarchy = self.structured_data.get('hierarchy', {})
         level = context.get('level', 'START')
         
-        # Check for chart/table requests
+        # Use LLM to intelligently detect output format
+        output_format = await self._detect_output_format(message, context)
+        
+        # Generate chart/table based on intelligent detection
         chart_data = None
         table_data = None
         
-        if self._is_chart_request(message):
+        if output_format.get('needs_chart'):
             chart_data = await self._generate_chart_data_contextual(message, context)
         
-        if self._is_table_request(message):
+        if output_format.get('needs_table'):
             table_data = await self._generate_table_data_contextual(message, context)
         
         # Generate response based on level
@@ -303,7 +306,7 @@ class ChatbotEngine:
         elif level == 'PLANT':
             plant_id = context.get('plant_id')
             plant_data = hierarchy.get(plant_id, {})
-            response_text = await self._generate_plant_response(message, plant_data)
+            response_text = await self._generate_plant_response(message, plant_data, context)
             suggestions = await self._generate_section_suggestions(plant_id)
         
         elif level == 'SECTION':
@@ -311,7 +314,7 @@ class ChatbotEngine:
             section_id = context.get('section_id')
             plant_data = hierarchy.get(plant_id, {})
             section_data = plant_data.get('sections', {}).get(section_id, {})
-            response_text = await self._generate_section_response(message, plant_data, section_data)
+            response_text = await self._generate_section_response(message, plant_data, section_data, context)
             suggestions = await self._generate_item_suggestions(plant_id, section_id)
         
         elif level == 'ITEM':
@@ -321,7 +324,7 @@ class ChatbotEngine:
             plant_data = hierarchy.get(plant_id, {})
             section_data = plant_data.get('sections', {}).get(section_id, {})
             item_data = section_data.get('items', {}).get(item_code, {})
-            response_text = await self._generate_item_response(message, plant_data, section_data, item_data)
+            response_text = await self._generate_item_response(message, plant_data, section_data, item_data, context)
             suggestions = await self._generate_detail_suggestions(plant_id, section_id, item_code)
         
         else:
