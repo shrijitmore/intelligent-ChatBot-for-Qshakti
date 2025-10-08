@@ -187,6 +187,11 @@ function App() {
                     )}
                     <div className="message-bubble">
                       <p>{msg.content}</p>
+                      {msg.chartData && (
+                        <div className="message-chart">
+                          <Chart chartData={msg.chartData} />
+                        </div>
+                      )}
                       {msg.metadata?.relevant_tables && msg.metadata.relevant_tables.length > 0 && (
                         <div className="message-metadata">
                           <small>📊 Referenced: {msg.metadata.relevant_tables.join(', ')}</small>
