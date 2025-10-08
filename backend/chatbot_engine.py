@@ -150,13 +150,16 @@ class ChatbotEngine:
         return suggestions[:5]
     
     async def process_message(self, session_id: str, message: str, is_suggestion: bool) -> Dict[str, Any]:
-        """Process message with hierarchical navigation"""
+        """Process message with hierarchical navigation and intelligent context tracking"""
         # Get current context
         context = await self._get_from_redis(session_id, 'context', {
             'level': 'START',
             'plant_id': None,
             'section_id': None,
-            'item_code': None
+            'item_code': None,
+            'selected_plant_name': None,
+            'selected_section_name': None,
+            'selected_item_desc': None
         })
         history = await self._get_from_redis(session_id, 'history', [])
         tree_path = await self._get_from_redis(session_id, 'tree_path', [])
@@ -172,7 +175,7 @@ class ChatbotEngine:
         # Add to decision tree path
         tree_path.append(message)
         
-        # Parse user intent and update context
+        # Parse user intent and update context (with memory of selections)
         new_context = await self._parse_user_intent(message, context)
         
         # Generate response based on new context
@@ -201,7 +204,8 @@ class ChatbotEngine:
             'table_data': response_data.get('table_data'),
             'metadata': {
                 'current_level': new_context['level'],
-                'context': new_context
+                'context': new_context,
+                'selected_path': f"{new_context.get('selected_plant_name', '')} > {new_context.get('selected_section_name', '')} > {new_context.get('selected_item_desc', '')}"
             }
         }
     
