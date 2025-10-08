@@ -37,7 +37,7 @@ class ChatbotEngine:
         # Create or get collection
         try:
             self.collection = self.chroma_client.get_collection(name="schema_embeddings")
-        except:
+        except Exception:
             self.collection = self.chroma_client.create_collection(name="schema_embeddings")
         
         # Generate and store embeddings for schema
