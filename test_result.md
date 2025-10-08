@@ -101,3 +101,74 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Implement chart generation feature so the chatbot can generate and display graphs when asked"
+
+backend:
+  - task: "Chart data generation"
+    implemented: true
+    working: true
+    file: "backend/chatbot_engine.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend already has chart generation logic implemented (_is_chart_request, _generate_chart_data). Uses Gemini to generate chart configurations based on user queries."
+
+frontend:
+  - task: "Chart component creation"
+    implemented: true
+    working: true
+    file: "frontend/src/components/Chart.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Created Chart.js component using recharts library. Supports bar, line, pie, scatter, and histogram charts with responsive design."
+
+  - task: "Chart integration in chat interface"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated App.js to import Chart component, capture chart_data from API response, and display charts in message bubbles when available."
+
+  - task: "Chart styling"
+    implemented: true
+    working: true
+    file: "frontend/src/App.css"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added CSS styles for chart containers with dark theme matching existing design. Includes responsive layout and error handling styles."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Chart data generation"
+    - "Chart component creation"
+    - "Chart integration in chat interface"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented chart generation feature. Backend logic was already present, created frontend Chart component using recharts library, integrated it into App.js to display charts in messages, and added matching dark theme styling. Ready for testing with queries like 'show me a chart', 'create a bar graph', 'visualize the inspection data', etc."
