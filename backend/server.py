@@ -48,6 +48,7 @@ class ChatResponse(BaseModel):
     suggestions: List[str]
     context_path: List[str]
     chart_data: Optional[Dict[str, Any]] = None
+    table_data: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
 
 class InitializeRequest(BaseModel):
