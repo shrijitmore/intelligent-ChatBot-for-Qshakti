@@ -1,0 +1,178 @@
+# Database Schema Documentation
+
+## Inspection & Quality Control
+
+### master_rminspectionreading
+**Columns:** id, created_at, updated_at, is_active, remarks, attachment_document, actual_readings, io_no, input_type, created_by_id, insp_schedule_id_id, updated_by_id
+**Records:** 1 samples
+**References:** auth_user (via created_by_id), master_inspectionschedule (via insp_schedule_id_id), auth_user (via updated_by_id)
+
+### master_faiinspectionreading
+**Columns:** id, created_at, updated_at, is_active, remarks, attachment_document, actual_readings, input_type, created_by_id, insp_schedule_id_id, po_no, updated_by_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_inspectionschedule (via insp_schedule_id_id), master_productionplanner (via po_no), auth_user (via updated_by_id)
+
+### master_inprocessinspectionreading
+**Columns:** id, created_at, updated_at, is_active, remarks, attachment_document, actual_readings, po_no, input_type, created_by_id, updated_by_id, insp_schedule_id_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_inspectionschedule (via insp_schedule_id_id), auth_user (via updated_by_id)
+
+### master_inspectionschedule
+**Columns:** id, created_at, updated_at, is_active, end_store, inspection_type, LSL, target_value, USL, sampling_required, sample_size, inspection_frequency, inspection_method, recording_type, attachment_document, FAI_required, FAI_recording_type, control_limit, likely_defects_classification, remarks, building_id, created_by_id, updated_by_id, item_code_id, production_machine_id_id, qc_machine_id_id, operation_id, inspection_parameter_id, plant_id_id
+**Records:** 3 samples
+**References:** master_buildingsectionlab (via building_id), auth_user (via created_by_id), master_parameterlist (via inspection_parameter_id), master_itemmaster (via item_code_id), master_operationmaster (via operation_id), master_plantmaster (via plant_id_id), master_machinemaster (via production_machine_id_id), master_machinemaster (via qc_machine_id_id), auth_user (via updated_by_id)
+**Referenced by:** master_rminspectionreading (via insp_schedule_id_id), master_faiinspectionreading (via insp_schedule_id_id), master_inprocessinspectionreading (via insp_schedule_id_id)
+
+## Master Data
+
+### auth_user_operation
+**Columns:** id, authuser_id, operationmaster_id
+**Records:** 3 samples
+**References:** auth_user (via authuser_id), master_operationmaster (via operationmaster_id)
+
+### auth_user_qc_machine
+**Columns:** id, authuser_id, machinemaster_id
+**Records:** 3 samples
+**References:** auth_user (via authuser_id), master_machinemaster (via machinemaster_id)
+
+### master_buildingsectionlab
+**Columns:** id, created_at, updated_at, is_active, building_id, building_category, building_name, sub_section, created_by_id, updated_by_id, plant_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_plantmaster (via plant_id), auth_user (via updated_by_id)
+**Referenced by:** auth_user_section (via buildingsectionlab_id), master_productionplanner (via section_id), master_itemmaster (via building_id), master_rmplanner (via section_id), master_inspectionschedule (via building_id)
+
+### master_parameterlist
+**Columns:** id, created_at, updated_at, is_active, inspection_parameter_id, inspection_parameter, parameter_description, created_by_id, updated_by_id, plant_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_plantmaster (via plant_id), auth_user (via updated_by_id)
+**Referenced by:** master_inspectionschedule (via inspection_parameter_id)
+
+### master_productionplanner
+**Columns:** id, created_at, updated_at, is_active, order_number, lot_number, lot_qty, item_desc, start_date, target_date, status, start_time, stop_time, duration, created_by_id, item_code_id, section_id, updated_by_id
+**Records:** 3 samples
+**References:** master_itemmaster (via item_code_id), master_buildingsectionlab (via section_id), auth_user (via created_by_id), auth_user (via updated_by_id)
+**Referenced by:** master_faiinspectionreading (via po_no)
+
+### master_rminspectionreading
+**Columns:** id, created_at, updated_at, is_active, remarks, attachment_document, actual_readings, io_no, input_type, created_by_id, insp_schedule_id_id, updated_by_id
+**Records:** 1 samples
+**References:** auth_user (via created_by_id), master_inspectionschedule (via insp_schedule_id_id), auth_user (via updated_by_id)
+
+### master_faiinspectionreading
+**Columns:** id, created_at, updated_at, is_active, remarks, attachment_document, actual_readings, input_type, created_by_id, insp_schedule_id_id, po_no, updated_by_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_inspectionschedule (via insp_schedule_id_id), master_productionplanner (via po_no), auth_user (via updated_by_id)
+
+### master_plantmaster
+**Columns:** id, created_at, updated_at, is_active, plant_id, plant_name, plant_location_1, plant_location_2, created_by_id, updated_by_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), auth_user (via updated_by_id)
+**Referenced by:** auth_user (via plant_id), master_buildingsectionlab (via plant_id), master_parameterlist (via plant_id), master_itemmaster (via plant_id), master_machinemaster (via plant_id), master_operationmaster (via plant_id), master_inspectionschedule (via plant_id_id)
+
+### master_itemmaster
+**Columns:** id, created_at, updated_at, is_active, item_code, item_description, unit, item_type, end_store, building_id, created_by_id, updated_by_id, plant_id
+**Records:** 3 samples
+**References:** master_buildingsectionlab (via building_id), auth_user (via created_by_id), master_plantmaster (via plant_id), auth_user (via updated_by_id)
+**Referenced by:** master_productionplanner (via item_code_id), master_rmplanner (via item_code_id), master_inspectionschedule (via item_code_id)
+
+### master_machinemaster
+**Columns:** id, created_at, updated_at, is_active, machine_id, machine_name, machine_make, machine_model, is_digital, machine_type, created_by_id, updated_by_id, plant_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_plantmaster (via plant_id), auth_user (via updated_by_id)
+**Referenced by:** auth_user_qc_machine (via machinemaster_id), master_inspectionschedule (via production_machine_id_id), master_inspectionschedule (via qc_machine_id_id)
+
+### master_inprocessinspectionreading
+**Columns:** id, created_at, updated_at, is_active, remarks, attachment_document, actual_readings, po_no, input_type, created_by_id, updated_by_id, insp_schedule_id_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_inspectionschedule (via insp_schedule_id_id), auth_user (via updated_by_id)
+
+### master_rmplanner
+**Columns:** id, created_at, updated_at, is_active, mis_no, io_number, lot_qty, item_desc, start_date, target_date, status, created_by_id, item_code_id, updated_by_id, section_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_itemmaster (via item_code_id), master_buildingsectionlab (via section_id), auth_user (via updated_by_id)
+
+### master_operationmaster
+**Columns:** id, created_at, updated_at, is_active, operation_id, operation_name, operation_description, created_by_id, updated_by_id, plant_id
+**Records:** 3 samples
+**References:** master_plantmaster (via plant_id), auth_user (via created_by_id), auth_user (via updated_by_id)
+**Referenced by:** auth_user_operation (via operationmaster_id), master_inspectionschedule (via operation_id)
+
+### master_inspectionschedule
+**Columns:** id, created_at, updated_at, is_active, end_store, inspection_type, LSL, target_value, USL, sampling_required, sample_size, inspection_frequency, inspection_method, recording_type, attachment_document, FAI_required, FAI_recording_type, control_limit, likely_defects_classification, remarks, building_id, created_by_id, updated_by_id, item_code_id, production_machine_id_id, qc_machine_id_id, operation_id, inspection_parameter_id, plant_id_id
+**Records:** 3 samples
+**References:** master_buildingsectionlab (via building_id), auth_user (via created_by_id), master_parameterlist (via inspection_parameter_id), master_itemmaster (via item_code_id), master_operationmaster (via operation_id), master_plantmaster (via plant_id_id), master_machinemaster (via production_machine_id_id), master_machinemaster (via qc_machine_id_id), auth_user (via updated_by_id)
+**Referenced by:** master_rminspectionreading (via insp_schedule_id_id), master_faiinspectionreading (via insp_schedule_id_id), master_inprocessinspectionreading (via insp_schedule_id_id)
+
+## User Management
+
+### auth_user_groups
+**Columns:** id, authuser_id, group_id
+**Records:** 0 samples
+**References:** auth_user (via authuser_id), auth_group (via group_id)
+
+### auth_user_user_permissions
+**Columns:** id, authuser_id, permission_id
+**Records:** 0 samples
+**References:** auth_permission (via permission_id), auth_user (via authuser_id)
+
+### auth_permission
+**Columns:** id, name, content_type_id, codename
+**Records:** 3 samples
+**References:** django_content_type (via content_type_id)
+**Referenced by:** auth_user_user_permissions (via permission_id), auth_group_permissions (via permission_id)
+
+### auth_group
+**Columns:** id, name
+**Records:** 0 samples
+**Referenced by:** auth_user_groups (via group_id), auth_group_permissions (via group_id)
+
+### auth_user
+**Columns:** id, last_login, is_superuser, created_at, updated_at, first_name, middle_name, last_name, email, phone_number, password, is_active, is_staff, user_image, user_status, created_by_id, plant_id, role_id, updated_by_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), master_plantmaster (via plant_id), rbac_role (via role_id), auth_user (via updated_by_id)
+**Referenced by:** auth_user_groups (via authuser_id), auth_user_user_permissions (via authuser_id), auth_user (via created_by_id), auth_user (via updated_by_id), auth_user_operation (via authuser_id), auth_user_qc_machine (via authuser_id), auth_user_section (via authuser_id), master_buildingsectionlab (via created_by_id), master_buildingsectionlab (via updated_by_id), django_admin_log (via user_id), master_parameterlist (via created_by_id), master_parameterlist (via updated_by_id), master_productionplanner (via created_by_id), master_productionplanner (via updated_by_id), master_rminspectionreading (via created_by_id), master_rminspectionreading (via updated_by_id), master_faiinspectionreading (via created_by_id), master_faiinspectionreading (via updated_by_id), master_plantmaster (via created_by_id), master_plantmaster (via updated_by_id), master_itemmaster (via created_by_id), master_itemmaster (via updated_by_id), master_machinemaster (via created_by_id), master_machinemaster (via updated_by_id), master_inprocessinspectionreading (via created_by_id), master_inprocessinspectionreading (via updated_by_id), master_rmplanner (via created_by_id), master_rmplanner (via updated_by_id), rbac_permission (via created_by_id), rbac_permission (via updated_by_id), master_operationmaster (via created_by_id), master_operationmaster (via updated_by_id), master_inspectionschedule (via created_by_id), master_inspectionschedule (via updated_by_id), rbac_screen (via created_by_id), rbac_screen (via updated_by_id), token_blacklist_outstandingtoken (via user_id), rbac_role (via created_by_id), rbac_role (via updated_by_id)
+
+### auth_user_operation
+**Columns:** id, authuser_id, operationmaster_id
+**Records:** 3 samples
+**References:** auth_user (via authuser_id), master_operationmaster (via operationmaster_id)
+
+### auth_user_qc_machine
+**Columns:** id, authuser_id, machinemaster_id
+**Records:** 3 samples
+**References:** auth_user (via authuser_id), master_machinemaster (via machinemaster_id)
+
+### auth_user_section
+**Columns:** id, authuser_id, buildingsectionlab_id
+**Records:** 3 samples
+**References:** auth_user (via authuser_id), master_buildingsectionlab (via buildingsectionlab_id)
+
+### rbac_permission
+**Columns:** id, created_at, updated_at, is_active, action, created_by_id, updated_by_id, role_id, screen_id
+**Records:** 3 samples
+**References:** auth_user (via created_by_id), rbac_role (via role_id), rbac_screen (via screen_id), auth_user (via updated_by_id)
+
+### auth_group_permissions
+**Columns:** id, group_id, permission_id
+**Records:** 0 samples
+**References:** auth_permission (via permission_id), auth_group (via group_id)
+
+## System Tables
+
+### django_migrations
+**Columns:** id, app, name, applied
+**Records:** 3 samples
+
+### django_session
+**Columns:** session_key, session_data, expire_date
+**Records:** 0 samples
+
+### django_content_type
+**Columns:** id, app_label, model
+**Records:** 3 samples
+**Referenced by:** auth_permission (via content_type_id), django_admin_log (via content_type_id)
+
+### django_admin_log
+**Columns:** id, action_time, object_id, object_repr, action_flag, change_message, content_type_id, user_id
+**Records:** 0 samples
+**References:** django_content_type (via content_type_id), auth_user (via user_id)
