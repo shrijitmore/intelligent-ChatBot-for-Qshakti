@@ -74,7 +74,8 @@ function App() {
         role: 'assistant',
         content: response.data.response,
         timestamp: new Date().toISOString(),
-        metadata: response.data.metadata
+        metadata: response.data.metadata,
+        chartData: response.data.chart_data
       };
 
       setMessages(prev => [...prev, assistantMessage]);
