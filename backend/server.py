@@ -72,14 +72,18 @@ class TreeResponse(BaseModel):
 async def startup_event():
     global redis_client, chatbot_engine
     
-    # Initialize Redis
-    redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379')
-    redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+    # Initialize in-memory session store (Redis alternative)
+    redis_client = InMemorySessionStore()
+    logging.info("Using in-memory session store")
     
     # Load the inspection data
     data_path = ROOT_DIR / 'data.txt'
     data_loader = DataLoader(str(data_path))
     structured_data = data_loader.load_and_structure()
+    
+    logging.info(f"Loaded data: {structured_data['total_records']} records, "
+                f"{len(structured_data['plants'])} plants, "
+                f"{structured_data['summary']['total_items']} items")
     
     # Initialize chatbot engine
     gemini_api_key = os.environ['GEMINI_API_KEY']
