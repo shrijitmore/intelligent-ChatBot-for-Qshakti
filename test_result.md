@@ -180,11 +180,11 @@ metadata:
 
 test_plan:
   current_focus:
+    - "Hierarchical chatbot navigation"
     - "Chart data generation"
-    - "Chart component creation"
-    - "Chart integration in chat interface"
+    - "Table data generation"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
   - task: "Table data generation"
