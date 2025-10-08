@@ -679,7 +679,7 @@ Examples:
         return None
     
     async def _generate_table_data_contextual(self, message: str, context: Dict) -> Optional[Dict]:
-        """Generate table based on current context"""
+        """Generate comprehensive table based on current context"""
         hierarchy = self.structured_data.get('hierarchy', {})
         level = context.get('level', 'START')
         
@@ -698,15 +698,38 @@ Examples:
                 rows = []
                 for param_id, param_data in parameters.items():
                     rows.append([
-                        param_data.get('name', ''),
-                        param_data.get('description', '')
+                        param_data.get('id', param_id),
+                        param_data.get('name', 'N/A'),
+                        param_data.get('description', 'N/A')
                     ])
                 
                 return {
-                    "title": f"Quality Parameters for {item_data.get('description', 'Item')}",
-                    "columns": ["Parameter", "Description"],
+                    "title": f"All Quality Parameters - {item_data.get('description', 'Item')}",
+                    "columns": ["Parameter ID", "Parameter Name", "Description"],
                     "rows": rows,
-                    "description": "All quality control parameters monitored for this item"
+                    "description": f"Complete list of {len(rows)} quality control parameters monitored for this item"
+                }
+            
+            # If no parameters, show inspection details
+            inspections = item_data.get('inspection_readings', [])
+            if inspections:
+                rows = []
+                for insp in inspections[:20]:  # Limit to 20 recent
+                    schedule = insp.get('schedule', {})
+                    rows.append([
+                        insp.get('po_no', 'N/A'),
+                        insp.get('parameter', 'N/A'),
+                        schedule.get('LSL', 'N/A'),
+                        schedule.get('target', 'N/A'),
+                        schedule.get('USL', 'N/A'),
+                        insp.get('machine', 'N/A')
+                    ])
+                
+                return {
+                    "title": f"Inspection Records - {item_data.get('description', 'Item')}",
+                    "columns": ["PO Number", "Parameter", "LSL", "Target", "USL", "Machine"],
+                    "rows": rows,
+                    "description": f"Recent inspection records (showing {len(rows)} of {len(inspections)} total)"
                 }
         
         elif level == 'SECTION':
@@ -720,16 +743,42 @@ Examples:
             rows = []
             for item_code, item_data in items.items():
                 rows.append([
-                    item_data.get('description', ''),
-                    item_data.get('type', ''),
+                    item_data.get('code', item_code),
+                    item_data.get('description', 'N/A'),
+                    item_data.get('type', 'N/A'),
+                    item_data.get('unit', 'N/A'),
                     str(len(item_data.get('inspection_readings', [])))
                 ])
             
             return {
-                "title": f"Items in {section_data.get('name', 'Section')}",
-                "columns": ["Item", "Type", "Inspection Records"],
+                "title": f"All Items in {section_data.get('name', 'Section')}",
+                "columns": ["Item Code", "Description", "Type", "Unit", "Inspections"],
                 "rows": rows,
-                "description": "All items produced in this section"
+                "description": f"Complete list of {len(rows)} items/products in this section"
+            }
+        
+        elif level == 'PLANT':
+            plant_id = context.get('plant_id')
+            plant_data = hierarchy.get(plant_id, {})
+            sections = plant_data.get('sections', {})
+            
+            rows = []
+            for section_id, section_data in sections.items():
+                items = section_data.get('items', {})
+                total_inspections = sum(len(item.get('inspection_readings', [])) for item in items.values())
+                rows.append([
+                    section_data.get('id', section_id),
+                    section_data.get('name', 'N/A'),
+                    section_data.get('sub_section', 'N/A'),
+                    str(len(items)),
+                    str(total_inspections)
+                ])
+            
+            return {
+                "title": f"All Sections/Buildings at {plant_data.get('name', 'Plant')}",
+                "columns": ["Building ID", "Building Name", "Sub-section", "Items", "Inspections"],
+                "rows": rows,
+                "description": f"Complete list of {len(rows)} sections/buildings at this facility"
             }
         
         return None
