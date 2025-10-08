@@ -196,11 +196,14 @@ test_plan:
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Updated ChatResponse model to include table_data field. Updated send_message endpoint to return table_data in response."
+      - working: true
+        agent: "testing"
+        comment: "✅ TABLE RESPONSE MODEL VERIFIED: ChatResponse model correctly includes table_data field. API endpoint /api/chat/message properly returns table_data in response when table requests are made. Table data structure validated with proper title, columns, and rows fields. Integration between table generation logic and API response model working correctly."
 
 frontend:
   - task: "Table component creation"
