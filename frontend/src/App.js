@@ -76,7 +76,8 @@ function App() {
         content: response.data.response,
         timestamp: new Date().toISOString(),
         metadata: response.data.metadata,
-        chartData: response.data.chart_data
+        chartData: response.data.chart_data,
+        tableData: response.data.table_data
       };
 
       setMessages(prev => [...prev, assistantMessage]);
