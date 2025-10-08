@@ -546,13 +546,36 @@ Generate a COMPREHENSIVE response (max 250 words) that:
     
     async def _generate_detail_suggestions(self, plant_id: str, section_id: str, item_code: str) -> List[str]:
         """Generate suggestions for detailed exploration"""
-        suggestions = [
-            "Show me quality trends over time",
-            "What machines are used for inspection?",
-            "Display all inspection parameters",
-            "Show me recent inspection results",
-            "Compare actual vs target values"
-        ]
+        hierarchy = self.structured_data.get('hierarchy', {})
+        plant_data = hierarchy.get(plant_id, {})
+        section_data = plant_data.get('sections', {}).get(section_id, {})
+        item_data = section_data.get('items', {}).get(item_code, {})
+        
+        suggestions = []
+        
+        # Add suggestions based on available data
+        if item_data.get('inspection_readings'):
+            suggestions.append("Show me quality trends over time")
+        
+        if item_data.get('machines'):
+            suggestions.append("List all QC machines used")
+        
+        if item_data.get('parameters'):
+            suggestions.append("Display all quality parameters")
+        
+        if item_data.get('operations'):
+            suggestions.append("Show all manufacturing operations")
+        
+        if item_data.get('inspection_readings'):
+            suggestions.append("Show recent inspection records")
+        
+        # Ensure we have 5 suggestions
+        if len(suggestions) < 5:
+            suggestions.extend([
+                "Compare actual vs target values",
+                "Show inspection frequency details",
+                "Display complete item specifications"
+            ])
         
         return suggestions[:5]
     
