@@ -81,9 +81,11 @@ async def startup_event():
     data_loader = DataLoader(str(data_path))
     structured_data = data_loader.load_and_structure()
     
-    logging.info(f"Loaded data: {structured_data['total_records']} records, "
-                f"{len(structured_data['plants'])} plants, "
-                f"{structured_data['summary']['total_items']} items")
+    summary = structured_data['summary']
+    logging.info(f"Loaded COMPLETE data: {structured_data['total_records']} inspection records")
+    logging.info(f"  → Plants: {summary['total_plants']}, Sections: {summary['total_sections']}, Items: {summary['total_items']}")
+    logging.info(f"  → Operations: {summary['total_operations']}, Parameters: {summary['total_parameters']}, Machines: {summary['total_machines']}")
+    logging.info(f"  → Total Inspections: {summary['total_inspection_readings']}")
     
     # Initialize chatbot engine
     gemini_api_key = os.environ['GEMINI_API_KEY']
