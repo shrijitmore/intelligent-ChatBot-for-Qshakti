@@ -181,11 +181,14 @@ test_plan:
     file: "backend/chatbot_engine.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Added table generation logic (_is_table_request, _generate_table_data). Detects table keywords and uses Gemini to generate structured table data with columns, rows, title, and description."
+      - working: true
+        agent: "testing"
+        comment: "✅ HIERARCHICAL TABLE GENERATION TESTED: Table generation works correctly with contextual data. Successfully tested 'Display all inspection parameters' at ITEM level, returning proper table_data with title, columns, and rows. Table structure includes quality parameters with descriptions. Context-aware table generation provides relevant data based on current navigation level (plant/section/item). Table requests properly return table_data while chart_data remains null."
 
   - task: "Table response model update"
     implemented: true
