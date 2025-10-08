@@ -210,7 +210,7 @@ class ChatbotEngine:
         }
     
     async def _parse_user_intent(self, message: str, current_context: Dict) -> Dict:
-        """Parse user message to determine navigation intent"""
+        """Parse user message to determine navigation intent with memory"""
         hierarchy = self.structured_data.get('hierarchy', {})
         
         # Try to find matching entities using embeddings
@@ -234,20 +234,43 @@ class ChatbotEngine:
                 new_context = current_context.copy()
                 
                 if best_match['level'] == 'plant':
+                    plant_id = best_match['plant_id']
+                    plant_data = hierarchy.get(plant_id, {})
                     new_context['level'] = 'PLANT'
-                    new_context['plant_id'] = best_match['plant_id']
+                    new_context['plant_id'] = plant_id
+                    new_context['selected_plant_name'] = plant_data.get('name', '')
                     new_context['section_id'] = None
+                    new_context['selected_section_name'] = None
                     new_context['item_code'] = None
+                    new_context['selected_item_desc'] = None
+                    
                 elif best_match['level'] == 'section':
+                    plant_id = best_match['plant_id']
+                    section_id = best_match['section_id']
+                    plant_data = hierarchy.get(plant_id, {})
+                    section_data = plant_data.get('sections', {}).get(section_id, {})
                     new_context['level'] = 'SECTION'
-                    new_context['plant_id'] = best_match['plant_id']
-                    new_context['section_id'] = best_match['section_id']
+                    new_context['plant_id'] = plant_id
+                    new_context['selected_plant_name'] = plant_data.get('name', '')
+                    new_context['section_id'] = section_id
+                    new_context['selected_section_name'] = section_data.get('name', '')
                     new_context['item_code'] = None
+                    new_context['selected_item_desc'] = None
+                    
                 elif best_match['level'] == 'item':
+                    plant_id = best_match['plant_id']
+                    section_id = best_match['section_id']
+                    item_code = best_match['item_code']
+                    plant_data = hierarchy.get(plant_id, {})
+                    section_data = plant_data.get('sections', {}).get(section_id, {})
+                    item_data = section_data.get('items', {}).get(item_code, {})
                     new_context['level'] = 'ITEM'
-                    new_context['plant_id'] = best_match['plant_id']
-                    new_context['section_id'] = best_match['section_id']
-                    new_context['item_code'] = best_match['item_code']
+                    new_context['plant_id'] = plant_id
+                    new_context['selected_plant_name'] = plant_data.get('name', '')
+                    new_context['section_id'] = section_id
+                    new_context['selected_section_name'] = section_data.get('name', '')
+                    new_context['item_code'] = item_code
+                    new_context['selected_item_desc'] = item_data.get('description', '')
                 
                 return new_context
         except Exception as e:
