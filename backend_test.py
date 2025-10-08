@@ -772,32 +772,50 @@ class ChatbotAPITester:
     
     def run_all_tests(self):
         """Run all tests in sequence"""
-        print("🚀 Starting Comprehensive Backend API Tests")
-        print("=" * 60)
+        print("🚀 Starting Comprehensive Backend API Tests - Chart & Table Generation")
+        print("=" * 70)
         
         # Priority 1: Core functionality
         self.test_root_endpoint()
         self.test_initialize_chat()
         
-        # Priority 2: Chart generation (new feature)
+        # Priority 2: Table generation (NEW FEATURE - HIGH PRIORITY)
+        print("\n📋 TESTING TABLE GENERATION FEATURES")
+        print("-" * 50)
+        self.test_table_generation_inspection_parameters()
+        self.test_table_generation_quality_control()
+        self.test_table_generation_machine_info()
+        self.test_table_generation_operations()
+        self.test_table_generation_user_management()
+        
+        # Priority 3: Chart generation (EXISTING FEATURE)
+        print("\n📊 TESTING CHART GENERATION FEATURES")
+        print("-" * 50)
         self.test_chart_generation_bar()
         self.test_chart_generation_pie()
         self.test_chart_generation_line()
         self.test_chart_generation_visualization()
         
-        # Priority 3: Regular chat functionality
+        # Priority 4: Combined and edge cases
+        print("\n🔄 TESTING COMBINED & EDGE CASES")
+        print("-" * 50)
+        self.test_regular_query_no_chart_no_table()
+        self.test_database_permissions_query()
+        self.test_combined_conversation_persistence()
+        
+        # Priority 5: Regular chat functionality & session management
+        print("\n⚙️ TESTING CORE FUNCTIONALITY")
+        print("-" * 50)
         self.test_regular_message()
         self.test_metadata_and_suggestions()
-        
-        # Priority 4: Session management
         self.test_chat_history()
         self.test_decision_tree()
         self.test_session_reset()
         
         # Summary
-        print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
-        print("=" * 60)
+        print("\n" + "=" * 70)
+        print("📊 COMPREHENSIVE TEST SUMMARY")
+        print("=" * 70)
         
         passed = sum(1 for result in self.test_results if result["success"])
         total = len(self.test_results)
@@ -807,12 +825,25 @@ class ChatbotAPITester:
         print(f"Failed: {total - passed}")
         print(f"Success Rate: {(passed/total)*100:.1f}%")
         
+        # Categorize results
+        table_tests = [r for r in self.test_results if "Table Generation" in r["test"]]
+        chart_tests = [r for r in self.test_results if "Chart Generation" in r["test"]]
+        combined_tests = [r for r in self.test_results if "Combined" in r["test"] or "Regular Query" in r["test"]]
+        core_tests = [r for r in self.test_results if r not in table_tests + chart_tests + combined_tests]
+        
+        print(f"\n📋 Table Generation Tests: {sum(1 for t in table_tests if t['success'])}/{len(table_tests)} passed")
+        print(f"📊 Chart Generation Tests: {sum(1 for t in chart_tests if t['success'])}/{len(chart_tests)} passed")
+        print(f"🔄 Combined/Edge Case Tests: {sum(1 for t in combined_tests if t['success'])}/{len(combined_tests)} passed")
+        print(f"⚙️ Core Functionality Tests: {sum(1 for t in core_tests if t['success'])}/{len(core_tests)} passed")
+        
         # Show failed tests
         failed_tests = [result for result in self.test_results if not result["success"]]
         if failed_tests:
             print("\n❌ FAILED TESTS:")
             for test in failed_tests:
                 print(f"  - {test['test']}: {test['details']}")
+        else:
+            print("\n✅ ALL TESTS PASSED!")
         
         return passed == total
 
