@@ -403,30 +403,35 @@ Generate a conversational response (max 150 words) that:
             self.logger.error(f"Error generating plant response: {str(e)}")
             return f"You've selected {plant_name}, which has {len(sections)} sections/buildings including {', '.join(section_names[:3])}. We track {total_items} different items here. Which section would you like to explore?"
     
-    async def _generate_section_response(self, message: str, plant_data: Dict, section_data: Dict) -> str:
-        """Generate response for SECTION level"""
+    async def _generate_section_response(self, message: str, plant_data: Dict, section_data: Dict, context: Dict) -> str:
+        """Generate response for SECTION level with context memory"""
         plant_name = plant_data.get('name', 'the facility')
         section_name = section_data.get('name', 'this section')
         items = section_data.get('items', {})
         item_descs = [i['description'] for i in items.values()]
         
+        # Get total inspection readings
+        total_readings = sum(len(i.get('inspection_readings', [])) for i in items.values())
+        
         prompt = f"""
-You are a manufacturing data assistant. User is exploring a specific section.
+You are a manufacturing data assistant. User navigated: {context.get('selected_plant_name')} → {context.get('selected_section_name')}
 
 User message: {message}
 
-Context:
+Section Details:
 - Plant: {plant_name}
-- Section: {section_name}
-- Items produced: {', '.join(item_descs[:3])}
+- Section/Building: {section_name}
+- Items/Products: {', '.join(item_descs[:5])}
 - Total items: {len(items)}
+- Inspection records: {total_readings}
 
-Generate a natural response (max 120 words) that:
-1. Describes this section's role/purpose
-2. Mentions key items produced here
-3. Makes it interesting and informative
-4. NO technical database terms
-5. Encourages exploring specific items
+Generate a natural response (max 150 words) that:
+1. Acknowledges they're now viewing {section_name}
+2. Describes what this section manufactures
+3. Lists items/products clearly
+4. Mentions quality control scope
+5. Suggests they can view item details, parameters, or inspection data
+6. NO technical jargon - friendly guide tone
 """
         
         try:
@@ -434,7 +439,7 @@ Generate a natural response (max 120 words) that:
             return response.text.strip()
         except Exception as e:
             self.logger.error(f"Error generating section response: {str(e)}")
-            return f"The {section_name} section at {plant_name} handles {len(items)} different items including {', '.join(item_descs[:2])}. Would you like to see details about any specific item?"
+            return f"You're now viewing {section_name} at {plant_name}. This section handles {len(items)} items including {', '.join(item_descs[:2])}, with {total_readings} inspection records. Would you like to explore a specific item?"
     
     async def _generate_item_response(self, message: str, plant_data: Dict, section_data: Dict, item_data: Dict) -> str:
         """Generate response for ITEM level"""
