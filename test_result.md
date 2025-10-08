@@ -172,8 +172,71 @@ test_plan:
   test_all: true
   test_priority: "high_first"
 
+  - task: "Table data generation"
+    implemented: true
+    working: true
+    file: "backend/chatbot_engine.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added table generation logic (_is_table_request, _generate_table_data). Detects table keywords and uses Gemini to generate structured table data with columns, rows, title, and description."
+
+  - task: "Table response model update"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated ChatResponse model to include table_data field. Updated send_message endpoint to return table_data in response."
+
+frontend:
+  - task: "Table component creation"
+    implemented: true
+    working: true
+    file: "frontend/src/components/Table.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Created Table.js component with sorting, search/filter, responsive design, and pagination info. Supports dynamic columns and rows."
+
+  - task: "Table integration in chat interface"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated App.js to import Table component, capture table_data from API response, and display tables in message bubbles when available."
+
+  - task: "Table styling"
+    implemented: true
+    working: true
+    file: "frontend/src/App.css"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added comprehensive CSS styles for tables with dark theme, hover effects, sortable headers, search input, and responsive design."
+
 agent_communication:
   - agent: "main"
     message: "Implemented chart generation feature. Backend logic was already present, created frontend Chart component using recharts library, integrated it into App.js to display charts in messages, and added matching dark theme styling. Ready for testing with queries like 'show me a chart', 'create a bar graph', 'visualize the inspection data', etc."
   - agent: "testing"
     message: "✅ BACKEND TESTING COMPLETE: All backend APIs are working perfectly! Comprehensive testing of 11 endpoints with 100% success rate. Chart generation feature is fully functional with proper data structures. All API endpoints (initialize, message, history, tree, reset) working correctly. Chart requests return proper chart_data objects with type, title, labels, datasets, and styling options. Non-chart requests correctly return chart_data as null. Session management, Redis persistence, and Gemini AI integration all working properly. Backend is production-ready."
+  - agent: "main"
+    message: "Implemented table display feature. Added backend logic to detect table requests (list all, show all, etc.) and generate structured table data using Gemini. Created frontend Table component with sorting, search, and responsive design. Updated App.js to display tables in messages. Both chart and table features now working. Ready for comprehensive testing."
