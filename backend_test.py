@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
 """
 Comprehensive Backend API Tests for Intelligent Database Chatbot
-Tests all API endpoints with focus on chart generation feature
+Tests all API endpoints with focus on BOTH chart and table generation features
+
+Priority 1: Table Generation Feature (NEW)
+- List all inspection parameters
+- Show all tables related to quality control  
+- Display all machine information
+- What are all the operations?
+- Give me all user management tables
+
+Priority 2: Chart Generation Feature (EXISTING)
+- Bar charts, pie charts, line charts, visualizations
+
+Priority 3: Combined and Edge Cases
+- Regular queries (no chart/table)
+- Mixed conversation history
+- Proper data separation
 """
 
 import requests
