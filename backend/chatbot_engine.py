@@ -722,6 +722,49 @@ Examples:
             
             parameters = item_data.get('parameters', {})
             
+            # Check what data to show based on message keywords
+            message_lower = message.lower()
+            
+            # Show operations table
+            operations = item_data.get('operations', {})
+            if operations and ('operation' in message_lower or 'manufacturing' in message_lower):
+                rows = []
+                for op_id, op_data in operations.items():
+                    rows.append([
+                        op_data.get('id', op_id),
+                        op_data.get('name', 'N/A'),
+                        op_data.get('description', 'N/A')
+                    ])
+                
+                return {
+                    "title": f"All Manufacturing Operations - {item_data.get('description', 'Item')}",
+                    "columns": ["Operation ID", "Operation Name", "Description"],
+                    "rows": rows,
+                    "description": f"Complete list of {len(rows)} manufacturing operations for this item"
+                }
+            
+            # Show machines table
+            machines = item_data.get('machines', {})
+            if machines and ('machine' in message_lower or 'qc' in message_lower):
+                rows = []
+                for machine_id, machine_data in machines.items():
+                    rows.append([
+                        machine_data.get('id', machine_id),
+                        machine_data.get('name', 'N/A'),
+                        machine_data.get('make', 'N/A'),
+                        machine_data.get('model', 'N/A'),
+                        'Yes' if machine_data.get('is_digital') else 'No',
+                        machine_data.get('type', 'N/A')
+                    ])
+                
+                return {
+                    "title": f"All QC Machines - {item_data.get('description', 'Item')}",
+                    "columns": ["Machine ID", "Machine Name", "Make", "Model", "Digital", "Type"],
+                    "rows": rows,
+                    "description": f"Complete list of {len(rows)} quality control machines used for this item"
+                }
+            
+            # Show parameters table (default)
             if parameters:
                 rows = []
                 for param_id, param_data in parameters.items():
