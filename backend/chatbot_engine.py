@@ -441,32 +441,46 @@ Generate a natural response (max 150 words) that:
             self.logger.error(f"Error generating section response: {str(e)}")
             return f"You're now viewing {section_name} at {plant_name}. This section handles {len(items)} items including {', '.join(item_descs[:2])}, with {total_readings} inspection records. Would you like to explore a specific item?"
     
-    async def _generate_item_response(self, message: str, plant_data: Dict, section_data: Dict, item_data: Dict) -> str:
-        """Generate response for ITEM level"""
+    async def _generate_item_response(self, message: str, plant_data: Dict, section_data: Dict, item_data: Dict, context: Dict) -> str:
+        """Generate response for ITEM level with context memory and comprehensive data"""
         item_desc = item_data.get('description', 'this item')
+        item_code = item_data.get('code', '')
         item_type = item_data.get('type', '')
         operations = list(item_data.get('operations', {}).values())
         machines = list(item_data.get('machines', {}).values())
         parameters = list(item_data.get('parameters', {}).values())
         inspections = item_data.get('inspection_readings', [])
         
+        # Get parameter names
+        param_names = [p.get('name', '') for p in parameters if p.get('name')]
+        
         prompt = f"""
-You are a manufacturing data assistant. User is exploring a specific item/product.
+You are a manufacturing data assistant. User navigated to item: {context.get('selected_item_desc')}
+Path: {context.get('selected_plant_name')} → {context.get('selected_section_name')} → {item_desc}
 
 User message: {message}
 
-Item: {item_desc} ({item_type})
-Operations: {len(operations)} different operations
-QC Machines: {len(machines)} machines used
-Quality Parameters: {len(parameters)} parameters monitored
-Inspection Records: {len(inspections)} readings available
+Complete Item Details:
+- Item: {item_desc}
+- Item Code: {item_code}
+- Type: {item_type}
+- Operations: {len(operations)} manufacturing operations
+- QC Machines: {len(machines)} inspection machines
+- Quality Parameters: {', '.join(param_names[:5])} (total: {len(parameters)})
+- Inspection Records: {len(inspections)} complete readings available
 
-Generate an informative response (max 150 words) that:
-1. Describes what this item is
-2. Explains the manufacturing/inspection process naturally
-3. Mentions key quality checks
-4. Offers to show specific data (charts, inspection details)
-5. Be conversational - NO database jargon
+Generate a comprehensive response (max 200 words) that:
+1. Confirms they're viewing {item_desc}
+2. Explains what this item is and its purpose
+3. Describes the manufacturing process
+4. Lists quality parameters being monitored
+5. Mentions inspection scope and machines
+6. Offers to show:
+   - Quality trends (chart)
+   - All parameters (table)
+   - Inspection history
+   - Machine details
+7. Friendly, informative tone - NO database jargon
 """
         
         try:
@@ -474,7 +488,7 @@ Generate an informative response (max 150 words) that:
             return response.text.strip()
         except Exception as e:
             self.logger.error(f"Error generating item response: {str(e)}")
-            return f"{item_desc} undergoes {len(operations)} operations with {len(parameters)} quality parameters monitored. We have {len(inspections)} inspection readings. Would you like to see quality trends or inspection details?"
+            return f"You're viewing {item_desc} (Code: {item_code}, Type: {item_type}). This item goes through {len(operations)} operations and {len(parameters)} quality parameters are monitored: {', '.join(param_names[:3])}. We have {len(inspections)} inspection readings from {len(machines)} QC machines. I can show you quality trends in a chart, all parameters in a table, or specific inspection details. What would you like to see?"
     
     async def _generate_plant_suggestions(self) -> List[str]:
         """Generate suggestions for plant selection"""
