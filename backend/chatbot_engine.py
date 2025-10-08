@@ -18,7 +18,7 @@ class ChatbotEngine:
         
         # Configure Gemini
         genai.configure(api_key=gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-flash-latest')
+        self.model = genai.GenerativeModel('gemini-2.0-flash-lite')
         
         # ChromaDB client (in-memory for now)
         self.chroma_client = None
