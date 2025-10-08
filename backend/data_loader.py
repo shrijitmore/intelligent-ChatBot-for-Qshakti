@@ -151,7 +151,7 @@ class DataLoader:
         return hierarchy
     
     def _generate_summary(self, hierarchy: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate summary statistics"""
+        """Generate comprehensive summary statistics"""
         total_plants = len(hierarchy)
         total_sections = sum(len(plant['sections']) for plant in hierarchy.values())
         total_items = sum(
@@ -166,11 +166,26 @@ class DataLoader:
             for item in section['items'].values()
         )
         
+        # Count all unique operations, parameters, machines
+        all_operations = set()
+        all_parameters = set()
+        all_machines = set()
+        
+        for plant in hierarchy.values():
+            for section in plant['sections'].values():
+                for item in section['items'].values():
+                    all_operations.update(item.get('operations', {}).keys())
+                    all_parameters.update(item.get('parameters', {}).keys())
+                    all_machines.update(item.get('machines', {}).keys())
+        
         return {
             "total_plants": total_plants,
             "total_sections": total_sections,
             "total_items": total_items,
-            "total_inspection_readings": total_inspections
+            "total_inspection_readings": total_inspections,
+            "total_operations": len(all_operations),
+            "total_parameters": len(all_parameters),
+            "total_machines": len(all_machines)
         }
     
     def get_plant_info(self, plant_id: str) -> Dict[str, Any]:
