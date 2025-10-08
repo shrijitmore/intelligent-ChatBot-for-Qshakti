@@ -418,6 +418,90 @@ Make the chart relevant to the user's request and use realistic sample data that
                 }
             }
     
+    def _is_table_request(self, message: str) -> bool:
+        """Check if the user is requesting tabular data"""
+        table_keywords = [
+            'list all', 'show all', 'list the', 'show the', 'display all',
+            'all tables', 'all parameters', 'all columns', 'all records',
+            'what are the', 'what tables', 'enumerate', 'give me all',
+            'show me all', 'display the', 'list of', 'table of'
+        ]
+        message_lower = message.lower()
+        return any(keyword in message_lower for keyword in table_keywords)
+    
+    async def _generate_table_data(self, message: str, relevant_tables: List[str]) -> Optional[Dict]:
+        """Generate table data based on user request and relevant tables"""
+        if not relevant_tables:
+            return None
+        
+        # Get table information
+        tables_info = []
+        for table_name in relevant_tables[:5]:  # Limit to first 5 tables
+            table_data = self.structured_data['tables'].get(table_name, {})
+            if table_data:
+                tables_info.append({
+                    'name': table_name,
+                    'columns': table_data.get('columns', []),
+                    'records': table_data.get('records', 0),
+                    'references': table_data.get('references', []),
+                    'referenced_by': table_data.get('referenced_by', [])
+                })
+        
+        # Create prompt for table generation
+        prompt = f"""
+You are a data analyst. Based on the user's request and available database tables, generate a structured table.
+
+User Request: {message}
+
+Available Tables:
+{json.dumps(tables_info, indent=2)}
+
+Create a table that answers the user's request. Return a JSON object with this structure:
+{{
+    "title": "Table Title",
+    "columns": ["Column1", "Column2", "Column3"],
+    "rows": [
+        ["value1", "value2", "value3"],
+        ["value4", "value5", "value6"]
+    ],
+    "description": "Brief description of what this table shows"
+}}
+
+Make the table relevant, comprehensive, and use the actual data from the tables provided.
+For example, if asked about "all parameters", list parameter names, descriptions, and related tables.
+If asked about "all tables", list table names, number of records, and key information.
+"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            table_text = response.text.strip()
+            
+            # Clean up the response
+            table_text = table_text.replace('```json', '').replace('```', '').strip()
+            
+            # Parse JSON response
+            table_data = json.loads(table_text)
+            
+            return table_data
+        except Exception as e:
+            self.logger.error(f"Error generating table data: {str(e)}")
+            # Return a fallback table with actual data
+            if relevant_tables:
+                return {
+                    "title": "Relevant Tables",
+                    "columns": ["Table Name", "Records", "Key Columns"],
+                    "rows": [
+                        [
+                            table_name,
+                            str(self.structured_data['tables'].get(table_name, {}).get('records', 0)),
+                            ', '.join(self.structured_data['tables'].get(table_name, {}).get('columns', [])[:3])
+                        ]
+                        for table_name in relevant_tables[:5]
+                    ],
+                    "description": "Overview of relevant database tables"
+                }
+            return None
+    
     async def _save_to_redis(self, session_id: str, key: str, data: Any):
         """Save data to Redis"""
         redis_key = f"{session_id}:{key}"
