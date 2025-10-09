@@ -87,11 +87,11 @@ async def startup_event():
     logging.info(f"  → Operations: {summary['total_operations']}, Parameters: {summary['total_parameters']}, Machines: {summary['total_machines']}")
     logging.info(f"  → Total Inspections: {summary['total_inspection_readings']}")
     
-    # Initialize static QA engine (no LLM required)
-    chatbot_engine = StaticQAEngine(redis_client, structured_data)
+    # Initialize comprehensive QA engine with ALL data fields (no LLM required)
+    chatbot_engine = ComprehensiveQAEngine(redis_client, structured_data)
     await chatbot_engine.initialize()
     
-    logging.info("Static QA Engine initialized successfully - No LLM required")
+    logging.info("Comprehensive QA Engine initialized - Using ALL data fields, No LLM required")
 
 
 @app.on_event("shutdown")
