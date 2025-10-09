@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Transform chatbot into hierarchical navigation system with conversational responses (no table names). Implement Plant -> Section -> Item hierarchy with natural language suggestions and support for charts/tables."
+user_problem_statement: "Remove LLM functionality and implement static Q&A system with 6 question types. Use ALL data fields comprehensively from data.txt. Support charts, tables, and complete data display for: 1) PO Status, 2) Inward Material Quality, 3) In-Process Inspection, 4) Final Inspection, 5) Parameter Analysis with charts, 6) Parameter Distribution. All data loaded dynamically from data.txt without code changes."
 
 backend:
   - task: "Hierarchical chatbot navigation"
