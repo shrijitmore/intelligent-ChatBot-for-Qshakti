@@ -21,6 +21,7 @@ class DataLoader:
         
         self.structured_data = {
             "hierarchy": hierarchy,
+            "raw_records": self.raw_data,  # Add raw records for Q&A engine
             "total_records": len(self.raw_data),
             "plants": list(hierarchy.keys()),
             "summary": self._generate_summary(hierarchy)
