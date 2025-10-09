@@ -87,12 +87,11 @@ async def startup_event():
     logging.info(f"  → Operations: {summary['total_operations']}, Parameters: {summary['total_parameters']}, Machines: {summary['total_machines']}")
     logging.info(f"  → Total Inspections: {summary['total_inspection_readings']}")
     
-    # Initialize chatbot engine
-    gemini_api_key = os.environ['GEMINI_API_KEY']
-    chatbot_engine = ChatbotEngine(gemini_api_key, redis_client, structured_data)
+    # Initialize static QA engine (no LLM required)
+    chatbot_engine = StaticQAEngine(redis_client, structured_data)
     await chatbot_engine.initialize()
     
-    logging.info("Chatbot engine initialized successfully")
+    logging.info("Static QA Engine initialized successfully - No LLM required")
 
 
 @app.on_event("shutdown")
