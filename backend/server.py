@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 import json
 
-from chatbot_engine import ChatbotEngine
+from static_qa_engine import StaticQAEngine
 from data_loader import DataLoader
 from session_store import InMemorySessionStore
 
