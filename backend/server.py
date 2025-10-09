@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 import json
 
-from static_qa_engine import StaticQAEngine
+from comprehensive_qa_engine import ComprehensiveQAEngine
 from data_loader import DataLoader
 from session_store import InMemorySessionStore
 
