@@ -26,7 +26,7 @@ import time
 from typing import Dict, Any, List
 
 # Configuration
-BACKEND_URL = "https://code-resolver.preview.emergentagent.com/api"
+BACKEND_URL = "https://llm-removal-branch.preview.emergentagent.com/api"
 TEST_SESSION_ID = str(uuid.uuid4())
 
 class ChatbotAPITester:

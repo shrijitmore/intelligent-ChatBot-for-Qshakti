@@ -7,7 +7,7 @@ import requests
 import json
 import uuid
 
-BACKEND_URL = "https://code-resolver.preview.emergentagent.com/api"
+BACKEND_URL = "https://llm-removal-branch.preview.emergentagent.com/api"
 TEST_SESSION_ID = str(uuid.uuid4())
 
 def test_chart_data_structure():

@@ -6,7 +6,7 @@ import json
 
 def debug_chart_generation():
     session_id = 'debug-chart-session'
-    base_url = "https://code-resolver.preview.emergentagent.com/api"
+    base_url = "https://llm-removal-branch.preview.emergentagent.com/api"
     
     # Initialize session
     init_response = requests.post(f"{base_url}/chat/initialize", json={'session_id': session_id})
